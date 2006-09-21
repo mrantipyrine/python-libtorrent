@@ -21,9 +21,4 @@ while True:
 	print torrent.getState(myTorrent)
 	print ""
 
-#	print "PEER INFO:"
-	print torrent.getName(myTorrent)
-#	print torrent.getPeerInfo(myTorrent)
-#	print ""
-
 	sleep(1)
