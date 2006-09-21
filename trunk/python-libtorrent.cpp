@@ -1,5 +1,5 @@
 /* 
-Copyright: Alon Zakai ('Kripken') <kripkensteiner@gmail.com>
+Copyright: A. Zakai ('Kripken') <kripkensteiner@gmail.com> http://6thsenseless.blogspot.com
 
 2006-15-9
 
