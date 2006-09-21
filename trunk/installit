@@ -1,0 +1,8 @@
+echo ""
+echo "Make!"
+echo ""
+python setup.py build
+echo ""
+echo "Install!"
+echo ""
+sudo python setup.py install
