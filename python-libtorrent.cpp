@@ -275,10 +275,13 @@ static PyObject *torrent_setMaxConnections(PyObject *self, PyObject *args)
 
 static PyObject *torrent_addTorrent(PyObject *self, PyObject *args)
 {
-	const char *name;
-	PyArg_ParseTuple(args, "s", &name);
+	const char *name, *saveDir;
+//printf("Test\r\n");
+	PyArg_ParseTuple(args, "ss", &name, &saveDir);
+//printf("Test: %s\r\n", name);
+//printf("Test:: %s\r\n", saveDir);
 
-	return Py_BuildValue("i", internal_add_torrent(name, 0, true, "./"));
+	return Py_BuildValue("i", internal_add_torrent(name, 0, true, saveDir));
 }
 
 static PyObject *torrent_removeTorrent(PyObject *self, PyObject *args)
@@ -287,6 +290,8 @@ static PyObject *torrent_removeTorrent(PyObject *self, PyObject *args)
 	PyArg_ParseTuple(args, "i", &index);
 
 	assert(index < handles->size());
+
+	ses->remove_torrent(handles->at(index));
 
 	handles_t_iterator it = handles->begin() + index;
 
