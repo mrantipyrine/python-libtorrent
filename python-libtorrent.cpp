@@ -64,6 +64,11 @@ long					uniqueCounter	= 0;
 
 // Internal functions
 
+bool empty_name_check(const std::string & name)
+{
+	return 1;
+}
+
 long get_torrent_index(torrent_handle &handle)
 {
 	for (unsigned long i = 0; i < handles->size(); i++)
@@ -111,6 +116,8 @@ long internal_add_torrent(std::string const& torrent
 	}
 	catch (invalid_encoding&) {}
 	catch (boost::filesystem::filesystem_error&) {}
+
+printf("E\r\n");
 
 	torrent_handle h = ses->add_torrent(t, save_path, resume_data
 		, compact_mode, 16 * 1024);
@@ -180,8 +187,13 @@ long get_peer_index(libtorrent::tcp::endpoint addr, std::vector<peer_info> const
 
 static PyObject *torrent_init(PyObject *self, PyObject *args)
 {
+	char *clientID, *userAgent;
+	long v1,v2,v3,v4;
+
+	PyArg_ParseTuple(args, "siiiis", &clientID, &v1, &v2, &v3, &v4, &userAgent);
+
 	settings  = new session_settings;
-	ses       = new session;
+	ses       = new session(libtorrent::fingerprint(clientID, v1, v2, v3, v4));
 	handles   = new handles_t;
 	uniqueIDs = new uniqueIDs_t;
 
@@ -189,7 +201,10 @@ static PyObject *torrent_init(PyObject *self, PyObject *args)
 
 	handles->reserve(10); // It doesn't cost us too much, 10 handles, does it? Reserve that space.
 
-	settings->user_agent = "client_test " LIBTORRENT_VERSION;
+	settings->user_agent = std::string(userAgent) + " (libtorrent " LIBTORRENT_VERSION ")";
+
+	printf("ID: %s\r\n", clientID);
+	printf("User Agent: %s\r\n", settings->user_agent.c_str());
 
 //	std::deque<std::string> events;
 
@@ -315,12 +330,11 @@ static PyObject *torrent_setMaxConnections(PyObject *self, PyObject *args)
 static PyObject *torrent_addTorrent(PyObject *self, PyObject *args)
 {
 	const char *name, *saveDir;
-//printf("Test\r\n");
 	PyArg_ParseTuple(args, "ss", &name, &saveDir);
-//printf("Test: %s\r\n", name);
-//printf("Test:: %s\r\n", saveDir);
 
-	return Py_BuildValue("i", internal_add_torrent(name, 0, true, saveDir));
+	path saveDir_2	(saveDir, 	empty_name_check);
+
+	return Py_BuildValue("i", internal_add_torrent(name, 0, true, saveDir_2));
 }
 
 static PyObject *torrent_removeTorrent(PyObject *self, PyObject *args)
