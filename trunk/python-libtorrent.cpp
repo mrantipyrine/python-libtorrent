@@ -128,6 +128,40 @@ long internal_add_torrent(std::string const& torrent
 	return (uniqueCounter - 1);
 }
 
+void internal_remove_torrent(long index)
+{
+	assert(index < handles->size());
+
+	torrent_handle& h = handles->at(index);
+
+	// For valid torrents, save fastresume data
+	if (h.is_valid() && h.has_metadata())
+	{
+		h.pause();
+
+		entry data = h.write_resume_data();
+
+		std::stringstream s;
+		s << h.get_torrent_info().name() << ".fastresume";
+
+		boost::filesystem::ofstream out(h.save_path() / s.str(), std::ios_base::binary);
+
+		out.unsetf(std::ios_base::skipws);
+
+		bencode(std::ostream_iterator<char>(out), data);
+	}
+
+	ses->remove_torrent(h);
+
+	handles_t_iterator it = handles->begin() + index;
+	handles->erase(it);
+
+	uniqueIDs_t_iterator it2 = uniqueIDs->begin() + index;
+	uniqueIDs->erase(it2);
+
+	assert(handles->size() == uniqueIDs->size());
+}
+
 long get_peer_index(libtorrent::tcp::endpoint addr, std::vector<peer_info> const& peers)
 {
 	long index = -1;
@@ -190,34 +224,18 @@ static PyObject *torrent_init(PyObject *self, PyObject *args)
 
 static PyObject *torrent_quit(PyObject *self, PyObject *args)
 {
-	// Gracefully shutdown torrents
-	for (handles_t::iterator i = handles->begin(); i != handles->end(); ++i)
-	{
-		torrent_handle& h = *i;
-		if (!h.is_valid() || !h.has_metadata()) continue;
+	long Num = handles->size();
 
-		h.pause();
-
-		entry data = h.write_resume_data();
-
-		std::stringstream s;
-		s << h.get_torrent_info().name() << ".fastresume";
-
-		boost::filesystem::ofstream out(h.save_path() / s.str(), std::ios_base::binary);
-
-		out.unsetf(std::ios_base::skipws);
-
-		bencode(std::ostream_iterator<char>(out), data);
-
-		ses->remove_torrent(h);
-	}
+	// Shut down torrents gracefully
+	for (long i = 0; i < Num; i++)
+		internal_remove_torrent(0);
 
 	delete ses; // SLOWPOKE!
 	delete settings;
 	delete handles;
 	delete uniqueIDs;
 
-	Py_INCREF(constants);
+	Py_DECREF(constants);
 
 	Py_INCREF(Py_None); return Py_None;
 };
@@ -311,17 +329,7 @@ static PyObject *torrent_removeTorrent(PyObject *self, PyObject *args)
 	PyArg_ParseTuple(args, "i", &uniqueID);
 	long index = get_index_from_unique(uniqueID);
 
-	assert(index < handles->size());
-
-	ses->remove_torrent(handles->at(index));
-
-	handles_t_iterator it = handles->begin() + index;
-	handles->erase(it);
-
-	uniqueIDs_t_iterator it2 = uniqueIDs->begin() + index;
-	uniqueIDs->erase(it2);
-
-	assert(handles->size() == uniqueIDs->size());
+	internal_remove_torrent(index);
 
 	Py_INCREF(Py_None); return Py_None;
 }
@@ -378,9 +386,10 @@ static PyObject *torrent_getState(PyObject *self, PyObject *args)
 	PyArg_ParseTuple(args, "i", &uniqueID);
 	long index = get_index_from_unique(uniqueID);
 
-	torrent_status s = handles->at(index).status();
+	torrent_status			 s = handles->at(index).status();
+	const torrent_info	&i = handles->at(index).get_torrent_info();
 
-	return Py_BuildValue("{s:i,s:i,s:i,s:f,s:f,s:i,s:f,s:i,s:f,s:i,s:s,s:s,s:f,s:i,s:i,s:i,s:i}",
+	return Py_BuildValue("{s:i,s:i,s:i,s:f,s:f,s:i,s:f,s:i,s:f,s:i,s:s,s:s,s:f,s:i,s:i,s:i,s:i,s:i,s:i,s:i}",
 								"state",					s.state,
 								"numPeers", 			s.num_peers,
 								"numSeeds", 			s.num_seeds,
@@ -397,7 +406,10 @@ static PyObject *torrent_getState(PyObject *self, PyObject *args)
 								"totalDone",			long(s.total_done),
 								"totalPieces",			long(s.pieces),
 								"piecesDone",			long(s.num_pieces),
-								"blockSize",			long(s.block_size));
+								"blockSize",			long(s.block_size),
+								"totalSize",			long(i.total_size()),
+								"pieceLength",			long(i.piece_length()),
+								"numPieces",			long(i.num_pieces()));
 };
 
 static PyObject *torrent_popEvent(PyObject *self, PyObject *args)
