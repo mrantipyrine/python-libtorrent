@@ -49,14 +49,18 @@ using boost::filesystem::path;
 
 
 typedef std::vector<torrent_handle> handles_t;
-typedef handles_t::iterator handles_t_iterator;
+typedef std::vector<long> 				uniqueIDs_t;
+typedef handles_t::iterator 			handles_t_iterator;
+typedef uniqueIDs_t::iterator 		uniqueIDs_t_iterator;
 
 // Global variables
 
-session_settings *settings = NULL;
-session          *ses = NULL;
-handles_t        *handles = NULL;
+session_settings *settings 		= NULL;
+session          *ses 				= NULL;
+handles_t        *handles 			= NULL;
+uniqueIDs_t      *uniqueIDs		= NULL;
 PyObject         *constants;
+long					uniqueCounter	= 0;
 
 // Internal functions
 
@@ -69,7 +73,18 @@ long get_torrent_index(torrent_handle &handle)
 	assert(1 == 0);
 	return -1;
 }
-			
+
+long get_index_from_unique(long uniqueID)
+{
+	assert(handles->size() == uniqueIDs->size());
+
+	for (unsigned long i = 0; i < uniqueIDs->size(); i++)
+		if ((*uniqueIDs)[i] == uniqueID)
+			return i;
+
+	assert(1 == 0);
+	return -1;
+}
 
 long internal_add_torrent(std::string const& torrent
 	, float preferred_ratio
@@ -106,7 +121,11 @@ long internal_add_torrent(std::string const& torrent
 	h.set_max_uploads(-1);
 	h.set_ratio(preferred_ratio);
 
-	return (handles->size()-1);
+	uniqueIDs->push_back(uniqueCounter);
+
+	uniqueCounter++;
+
+	return (uniqueCounter - 1);
 }
 
 long get_peer_index(libtorrent::tcp::endpoint addr, std::vector<peer_info> const& peers)
@@ -127,9 +146,10 @@ long get_peer_index(libtorrent::tcp::endpoint addr, std::vector<peer_info> const
 
 static PyObject *torrent_init(PyObject *self, PyObject *args)
 {
-	settings = new session_settings;
-	ses      = new session;
-	handles  = new handles_t;
+	settings  = new session_settings;
+	ses       = new session;
+	handles   = new handles_t;
+	uniqueIDs = new uniqueIDs_t;
 
 	// Init values
 
@@ -195,6 +215,7 @@ static PyObject *torrent_quit(PyObject *self, PyObject *args)
 	delete ses; // SLOWPOKE!
 	delete settings;
 	delete handles;
+	delete uniqueIDs;
 
 	Py_INCREF(constants);
 
@@ -286,16 +307,21 @@ static PyObject *torrent_addTorrent(PyObject *self, PyObject *args)
 
 static PyObject *torrent_removeTorrent(PyObject *self, PyObject *args)
 {
-	long index;
-	PyArg_ParseTuple(args, "i", &index);
+	long uniqueID;
+	PyArg_ParseTuple(args, "i", &uniqueID);
+	long index = get_index_from_unique(uniqueID);
 
 	assert(index < handles->size());
 
 	ses->remove_torrent(handles->at(index));
 
 	handles_t_iterator it = handles->begin() + index;
-
 	handles->erase(it);
+
+	uniqueIDs_t_iterator it2 = uniqueIDs->begin() + index;
+	uniqueIDs->erase(it2);
+
+	assert(handles->size() == uniqueIDs->size());
 
 	Py_INCREF(Py_None); return Py_None;
 }
@@ -317,8 +343,9 @@ static PyObject *torrent_reannounce(PyObject *self, PyObject *args)
 
 static PyObject *torrent_pause(PyObject *self, PyObject *args)
 {
-	long index;
-	PyArg_ParseTuple(args, "i", &index);
+	long uniqueID;
+	PyArg_ParseTuple(args, "i", &uniqueID);
+	long index = get_index_from_unique(uniqueID);
 
 	handles->at(index).pause();
 
@@ -327,8 +354,9 @@ static PyObject *torrent_pause(PyObject *self, PyObject *args)
 
 static PyObject *torrent_resume(PyObject *self, PyObject *args)
 {
-	long index;
-	PyArg_ParseTuple(args, "i", &index);
+	long uniqueID;
+	PyArg_ParseTuple(args, "i", &uniqueID);
+	long index = get_index_from_unique(uniqueID);
 
 	handles->at(index).resume();
 
@@ -337,16 +365,18 @@ static PyObject *torrent_resume(PyObject *self, PyObject *args)
 
 static PyObject *torrent_getName(PyObject *self, PyObject *args)
 {
-	long index;
-	PyArg_ParseTuple(args, "i", &index);
+	long uniqueID;
+	PyArg_ParseTuple(args, "i", &uniqueID);
+	long index = get_index_from_unique(uniqueID);
 
 	return Py_BuildValue("s", handles->at(index).get_torrent_info().name().c_str());
 }
 
 static PyObject *torrent_getState(PyObject *self, PyObject *args)
 {
-	long index;
-	PyArg_ParseTuple(args, "i", &index);
+	long uniqueID;
+	PyArg_ParseTuple(args, "i", &uniqueID);
+	long index = get_index_from_unique(uniqueID);
 
 	torrent_status s = handles->at(index).status();
 
@@ -415,8 +445,9 @@ static PyObject *torrent_hasIncomingConnections(PyObject *self, PyObject *args)
 
 static PyObject *torrent_getPeerInfo(PyObject *self, PyObject *args)
 {
-	long index;
-	PyArg_ParseTuple(args, "i", &index);
+	long uniqueID;
+	PyArg_ParseTuple(args, "i", &uniqueID);
+	long index = get_index_from_unique(uniqueID);
 
 	std::vector<peer_info> peers;
 	handles->at(index).get_peer_info(peers);
