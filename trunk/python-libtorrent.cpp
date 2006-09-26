@@ -117,8 +117,6 @@ long internal_add_torrent(std::string const& torrent
 	catch (invalid_encoding&) {}
 	catch (boost::filesystem::filesystem_error&) {}
 
-printf("E\r\n");
-
 	torrent_handle h = ses->add_torrent(t, save_path, resume_data
 		, compact_mode, 16 * 1024);
 
@@ -203,8 +201,8 @@ static PyObject *torrent_init(PyObject *self, PyObject *args)
 
 	settings->user_agent = std::string(userAgent) + " (libtorrent " LIBTORRENT_VERSION ")";
 
-	printf("ID: %s\r\n", clientID);
-	printf("User Agent: %s\r\n", settings->user_agent.c_str());
+//	printf("ID: %s\r\n", clientID);
+//	printf("User Agent: %s\r\n", settings->user_agent.c_str());
 
 //	std::deque<std::string> events;
 
@@ -403,7 +401,19 @@ static PyObject *torrent_getState(PyObject *self, PyObject *args)
 	torrent_status			 s = handles->at(index).status();
 	const torrent_info	&i = handles->at(index).get_torrent_info();
 
-	return Py_BuildValue("{s:i,s:i,s:i,s:f,s:f,s:i,s:f,s:i,s:f,s:i,s:s,s:s,s:f,s:i,s:i,s:i,s:i,s:i,s:i,s:i}",
+	std::vector<peer_info> peers;
+	handles->at(index).get_peer_info(peers);
+
+	long total_seeds = 0;
+	long total_peers = 0;
+
+	for (unsigned long i = 0; i < peers.size(); i++)
+		if (peers[i].seed)
+			total_seeds++;
+		else
+			total_peers++;
+
+	return Py_BuildValue("{s:i,s:i,s:i,s:f,s:f,s:i,s:f,s:i,s:f,s:i,s:s,s:s,s:f,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i}",
 								"state",					s.state,
 								"numPeers", 			s.num_peers,
 								"numSeeds", 			s.num_seeds,
@@ -423,7 +433,9 @@ static PyObject *torrent_getState(PyObject *self, PyObject *args)
 								"blockSize",			long(s.block_size),
 								"totalSize",			long(i.total_size()),
 								"pieceLength",			long(i.piece_length()),
-								"numPieces",			long(i.num_pieces()));
+								"numPieces",			long(i.num_pieces()),
+								"totalSeeds",			total_seeds,
+								"totalPeers",			total_peers);
 };
 
 static PyObject *torrent_popEvent(PyObject *self, PyObject *args)
@@ -484,7 +496,7 @@ static PyObject *torrent_getPeerInfo(PyObject *self, PyObject *args)
 
 	for (unsigned long i = 0; i < peers.size(); i++)
 	{
-		peerInfo = Py_BuildValue("{s:f,s:i,s:f,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:s}",
+		peerInfo = Py_BuildValue("{s:f,s:i,s:f,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:s,s:i}",
 								"downloadSpeed", 			float(peers[i].down_speed),
 								"totalDownload", 			long(peers[i].total_download),
 								"uploadSpeed", 			float(peers[i].up_speed),
@@ -500,7 +512,8 @@ static PyObject *torrent_getPeerInfo(PyObject *self, PyObject *args)
 								"isAwaitingHandshake",	long((peers[i].flags & peer_info::handshake) != 0),
 								"isConnecting",			long((peers[i].flags & peer_info::connecting) != 0),
 								"isQueued",					long((peers[i].flags & peer_info::queued) != 0),
-								"client",					peers[i].client.c_str());
+								"client",					peers[i].client.c_str(),
+								"isSeed",					long(peers[i].seed));
 
 		PyTuple_SetItem(ret, i, peerInfo);
 	};
