@@ -1,2 +1,2 @@
 cp ./build/lib.linux-i686-2.4/* ./debian/usr/lib/python2.4/site-packages/
-dpkg-deb --build debian ./debs/python-libtorrent-0.2.deb
+dpkg-deb --build debian ./debs/python-libtorrent-0.1.1.deb
