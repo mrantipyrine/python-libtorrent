@@ -185,6 +185,9 @@ long get_peer_index(libtorrent::tcp::endpoint addr, std::vector<peer_info> const
 
 static PyObject *torrent_init(PyObject *self, PyObject *args)
 {
+	// Tell Boost that we are on *NIX, so bloody '.'s are ok inside a directory name!
+	path::default_name_check(empty_name_check);
+
 	char *clientID, *userAgent;
 	long v1,v2,v3,v4;
 
@@ -330,7 +333,7 @@ static PyObject *torrent_addTorrent(PyObject *self, PyObject *args)
 	const char *name, *saveDir;
 	PyArg_ParseTuple(args, "ss", &name, &saveDir);
 
-	path saveDir_2	(saveDir, 	empty_name_check);
+	path saveDir_2	(saveDir);// 	empty_name_check);
 
 	return Py_BuildValue("i", internal_add_torrent(name, 0, true, saveDir_2));
 }
