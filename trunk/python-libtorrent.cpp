@@ -499,7 +499,15 @@ static PyObject *torrent_getPeerInfo(PyObject *self, PyObject *args)
 
 	for (unsigned long i = 0; i < peers.size(); i++)
 	{
-		peerInfo = Py_BuildValue("{s:f,s:i,s:f,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:s,s:i}",
+		std::vector<bool> &pieces      = peers[i].pieces;
+		unsigned long      pieces_had  = 0;
+
+		for (unsigned long piece = 0; piece < pieces.size(); piece++)
+			if (pieces[piece])
+				pieces_had++;
+
+		peerInfo = Py_BuildValue(
+								"{s:f,s:i,s:f,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:s,s:i,s:s,s:f}",
 								"downloadSpeed", 			float(peers[i].down_speed),
 								"totalDownload", 			long(peers[i].total_download),
 								"uploadSpeed", 			float(peers[i].up_speed),
@@ -516,7 +524,10 @@ static PyObject *torrent_getPeerInfo(PyObject *self, PyObject *args)
 								"isConnecting",			long((peers[i].flags & peer_info::connecting) != 0),
 								"isQueued",					long((peers[i].flags & peer_info::queued) != 0),
 								"client",					peers[i].client.c_str(),
-								"isSeed",					long(peers[i].seed));
+								"isSeed",					long(peers[i].seed),
+								"ip",							peers[i].ip.address().to_string().c_str(),
+								"peerHas",					float(float(pieces_had)*100.0/pieces.size())
+									);
 
 		PyTuple_SetItem(ret, i, peerInfo);
 	};
