@@ -578,17 +578,23 @@ static PyObject *torrent_getFileInfo(PyObject *self, PyObject *args)
 
 	PyObject *fileInfo;
 
-	for(torrent_info::file_iterator i = handles->at(index).get_torrent_info().begin_files();
-		 i != handles->at(index).get_torrent_info().end_files();
-		 ++i)
+	std::vector<float> progresses;
+
+	handles->at(index).file_progress(progresses);
+
+	torrent_info::file_iterator start = handles->at(index).get_torrent_info().begin_files();
+	torrent_info::file_iterator end   = handles->at(index).get_torrent_info().end_files();
+	
+	for(torrent_info::file_iterator i = start; i != end; ++i)
 	{
 		file_entry const &currFile = (*i);
 
 		fileInfo = Py_BuildValue(
-								"{s:s,s:i,s:i}",
+								"{s:s,s:i,s:i,s:f}",
 								"path",				currFile.path.string().c_str(),
 								"offset", 			long(currFile.offset),
-								"size", 				long(currFile.size)
+								"size", 				long(currFile.size),
+								"progress",			progresses[i - start]*100.0
 										);
 
 		tempFiles.push_back(fileInfo);
