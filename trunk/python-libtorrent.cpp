@@ -21,6 +21,9 @@ Some code portions were derived from work by Arvid Norberg.
 #include "libtorrent/identify_client.hpp"
 #include "libtorrent/alert_types.hpp"
 
+//#include <iostream>
+//#include <fstream>
+
 //Needed just for debug purposes
 #include <stdio.h>
 
@@ -214,12 +217,30 @@ static PyObject *torrent_init(PyObject *self, PyObject *args)
 	ses->set_upload_rate_limit(-1);
 	ses->listen_on(std::make_pair(19335, 19335 + 10), ""); // 6881, usually
 	ses->set_settings(*settings);
-
 	ses->set_severity_level(alert::debug);
 //			ses.set_severity_level(alert::warning);
 //			ses.set_severity_level(alert::fatal);
 //			ses.set_severity_level(alert::info);
 
+/*	// Load old DHT data
+	std::ifstream dht_file;
+	dht_file.open("dht.data", std::ios::in | std::ios::ate | std::ios::binary);
+	if (dht_file.is_open())
+	{
+		long size = dht_file.tellg();
+		char * memblock = new char[size];
+		dht_file.seekg(0, std::ios::beg);
+		dht_file.read(memblock, size);
+		dht_file.close();
+		std::vector<char> buffer(memblock, memblock+size);
+		delete[] memblock;
+		entry old_state = bdecode(buffer.begin(), buffer.end());
+
+		ses->start_dht();//old_state);
+		printf("DHT initialized from file. %d bytes read\r\n", int(size));
+	} else
+		printf("No DHT file found.\r\n");
+*/
 	constants = Py_BuildValue("{s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i}",
 										"EVENT_NULL",					EVENT_NULL,
 										"EVENT_FINISHED",				EVENT_FINISHED,
@@ -246,7 +267,19 @@ static PyObject *torrent_quit(PyObject *self, PyObject *args)
 	for (long i = 0; i < Num; i++)
 		internal_remove_torrent(0);
 
-	delete ses; // SLOWPOKE!
+/*	// Shut down DHT gracefully, saving the current state
+	entry curr_state = ses->dht_state();
+	std::vector<char> buffer;
+	bencode(std::back_inserter(buffer), curr_state);
+	std::ofstream dht_file;
+	dht_file.open("dht.data", std::ios::out | std::ios::trunc | std::ios::binary);
+	dht_file.write(&buffer[0], buffer.size());
+	dht_file.close();
+	printf("DHT saved to file. %d bytes saved\r\n", buffer.size());
+
+	ses->stop_dht();
+*/
+	delete ses; // SLOWPOKE because of waiting for the trackers before shutting down
 	delete settings;
 	delete handles;
 	delete uniqueIDs;
@@ -535,6 +568,40 @@ static PyObject *torrent_getPeerInfo(PyObject *self, PyObject *args)
 	return ret;
 };
 
+static PyObject *torrent_getFileInfo(PyObject *self, PyObject *args)
+{
+	long uniqueID;
+	PyArg_ParseTuple(args, "i", &uniqueID);
+	long index = get_index_from_unique(uniqueID);
+
+	std::vector<PyObject *> tempFiles;
+
+	PyObject *fileInfo;
+
+	for(torrent_info::file_iterator i = handles->at(index).get_torrent_info().begin_files();
+		 i != handles->at(index).get_torrent_info().end_files();
+		 ++i)
+	{
+		file_entry const &currFile = (*i);
+
+		fileInfo = Py_BuildValue(
+								"{s:s,s:i,s:i}",
+								"path",				currFile.path.string().c_str(),
+								"offset", 			long(currFile.offset),
+								"size", 				long(currFile.size)
+										);
+
+		tempFiles.push_back(fileInfo);
+	};
+
+	PyObject *ret = PyTuple_New(tempFiles.size());
+	
+	for (unsigned long i = 0; i < tempFiles.size(); i++)
+		PyTuple_SetItem(ret, i, tempFiles[i]);
+
+	return ret;
+};
+
 
 static PyObject *torrent_constants(PyObject *self, PyObject *args)
 {
@@ -594,6 +661,7 @@ static PyMethodDef TorrentMethods[] = {
 	{"popEvent",                  torrent_popEvent,             METH_VARARGS, "Pops an event."},
 	{"hasIncomingConnections",    torrent_hasIncomingConnections, METH_VARARGS, "Has Incoming Connections?"},
 	{"getPeerInfo",					torrent_getPeerInfo, 			METH_VARARGS, "Get all peer info."},
+	{"getFileInfo",					torrent_getFileInfo, 			METH_VARARGS, "Get all file info."},
 	{"constants",						torrent_constants, 				METH_VARARGS, "Get the constants."},
 	{NULL}        /* Sentinel */
 };
