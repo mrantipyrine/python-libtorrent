@@ -55,6 +55,9 @@ typedef std::vector<torrent_handle> handles_t;
 typedef std::vector<long> 				uniqueIDs_t;
 typedef handles_t::iterator 			handles_t_iterator;
 typedef uniqueIDs_t::iterator 		uniqueIDs_t_iterator;
+typedef std::vector<bool>				filterOut_t;
+typedef std::vector<filterOut_t *>	filterOuts_t;
+typedef filterOuts_t::iterator		filterOuts_t_iterator;
 
 // Global variables
 
@@ -62,6 +65,7 @@ session_settings *settings 		= NULL;
 session          *ses 				= NULL;
 handles_t        *handles 			= NULL;
 uniqueIDs_t      *uniqueIDs		= NULL;
+filterOuts_t     *filterOuts		= NULL;
 PyObject         *constants;
 long					uniqueCounter	= 0;
 
@@ -130,8 +134,12 @@ long internal_add_torrent(std::string const& torrent
 	h.set_ratio(preferred_ratio);
 
 	uniqueIDs->push_back(uniqueCounter);
-
 	uniqueCounter++;
+
+	filterOuts->push_back(NULL);
+
+	assert(handles->size() == uniqueIDs->size());
+	assert(handles->size() == filterOuts->size());
 
 	return (uniqueCounter - 1);
 }
@@ -167,7 +175,11 @@ void internal_remove_torrent(long index)
 	uniqueIDs_t_iterator it2 = uniqueIDs->begin() + index;
 	uniqueIDs->erase(it2);
 
+	filterOuts_t_iterator it3 = filterOuts->begin() + index;
+	filterOuts->erase(it3);
+
 	assert(handles->size() == uniqueIDs->size());
+	assert(handles->size() == filterOuts->size());
 }
 
 long get_peer_index(libtorrent::tcp::endpoint addr, std::vector<peer_info> const& peers)
@@ -196,14 +208,17 @@ static PyObject *torrent_init(PyObject *self, PyObject *args)
 
 	PyArg_ParseTuple(args, "siiiis", &clientID, &v1, &v2, &v3, &v4, &userAgent);
 
-	settings  = new session_settings;
-	ses       = new session(libtorrent::fingerprint(clientID, v1, v2, v3, v4));
-	handles   = new handles_t;
-	uniqueIDs = new uniqueIDs_t;
+	settings   = new session_settings;
+	ses        = new session(libtorrent::fingerprint(clientID, v1, v2, v3, v4));
+	handles    = new handles_t;
+	uniqueIDs  = new uniqueIDs_t;
+	filterOuts = new filterOuts_t;
 
 	// Init values
 
 	handles->reserve(10); // It doesn't cost us too much, 10 handles, does it? Reserve that space.
+	uniqueIDs->reserve(10);
+	filterOuts->reserve(10);
 
 	settings->user_agent = std::string(userAgent) + " (libtorrent " LIBTORRENT_VERSION ")";
 
@@ -608,37 +623,34 @@ static PyObject *torrent_getFileInfo(PyObject *self, PyObject *args)
 	return ret;
 };
 
+static PyObject *torrent_setFilterOut(PyObject *self, PyObject *args)
+{
+	long uniqueID;
+	PyObject *filterOutObject;
+	PyArg_ParseTuple(args, "iO", &uniqueID, &filterOutObject);
+	long index = get_index_from_unique(uniqueID);
+
+	long numFiles = handles->at(index).get_torrent_info().num_files();
+	assert(PyObject_Length(filterOutObject) ==  numFiles);
+
+	if (filterOuts->at(index) == NULL)
+		filterOuts->at(index) = new filterOut_t(numFiles);
+
+	for (long i = 0; i < numFiles; i++)
+	{
+		filterOuts->at(index)->at(i) = PyInt_AsLong(PyTuple_GetItem(filterOutObject, i));
+		printf("File: %i  :  %i\r\n", int(i), int(filterOuts->at(index)->at(i)));
+	};
+
+	handles->at(index).filter_files(*filterOuts->at(index));
+
+	Py_INCREF(Py_None); return Py_None;
+}
 
 static PyObject *torrent_constants(PyObject *self, PyObject *args)
 {
 	Py_INCREF(constants); return constants;
 }
-
-/*		if (i->downloading_piece_index >= 0)
-		{
-			out << progress_bar(
-				i->downloading_progress / float(i->downloading_total), 15);
-		}
-		else
-		{
-			out << progress_bar(0.f, 15);
-		}
-*/
-
-/*						for (int j = 0; j < i->blocks_in_piece; ++j)
-						{
-							char const* peer_str = peer_index(i->peer[j], peers);
-#ifdef ANSI_TERMINAL_COLORS
-							if (i->finished_blocks[j]) out << esc("32;7") << peer_str << esc("0");
-							else if (i->requested_blocks[j]) out << peer_str;
-							else out << "-";
-#else
-							if (i->finished_blocks[j]) out << "#";
-							else if (i->requested_blocks[j]) out << peer_str;
-							else out << "-";
-#endif
-						}
-*/
 
 
 //====================
