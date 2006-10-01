@@ -56,7 +56,7 @@ typedef std::vector<long> 				uniqueIDs_t;
 typedef handles_t::iterator 			handles_t_iterator;
 typedef uniqueIDs_t::iterator 		uniqueIDs_t_iterator;
 typedef std::vector<bool>				filterOut_t;
-typedef std::vector<filterOut_t *>	filterOuts_t;
+typedef std::vector<filterOut_t>		filterOuts_t;
 typedef filterOuts_t::iterator		filterOuts_t_iterator;
 
 // Global variables
@@ -137,7 +137,14 @@ long internal_add_torrent(std::string const& torrent
 	uniqueIDs->push_back(uniqueCounter);
 	uniqueCounter++;
 
-	filterOuts->push_back(NULL);
+	long numFiles = h.get_torrent_info().num_files();
+
+	filterOuts->push_back(filterOut_t(numFiles));
+
+	filterOut_t &newFilterOut = filterOuts->at(filterOuts->size()-1);
+
+	for (long i = 0; i < numFiles; i++)
+		newFilterOut.at(i) = 0;
 
 	assert(handles->size() == uniqueIDs->size());
 	assert(handles->size() == filterOuts->size());
@@ -600,18 +607,25 @@ static PyObject *torrent_getFileInfo(PyObject *self, PyObject *args)
 
 	torrent_info::file_iterator start = handles->at(index).get_torrent_info().begin_files();
 	torrent_info::file_iterator end   = handles->at(index).get_torrent_info().end_files();
-	
+
+	long fileIndex = 0;
+
+	filterOut_t &filterOut = filterOuts->at(index);
+
 	for(torrent_info::file_iterator i = start; i != end; ++i)
 	{
 		file_entry const &currFile = (*i);
 
 		fileInfo = Py_BuildValue(
-								"{s:s,s:i,s:i,s:f}",
+								"{s:s,s:i,s:i,s:f,s:i}",
 								"path",				currFile.path.string().c_str(),
 								"offset", 			long(currFile.offset),
 								"size", 				long(currFile.size),
-								"progress",			progresses[i - start]*100.0
+								"progress",			progresses[i - start]*100.0,
+								"filteredOut",		long(filterOut.at(fileIndex))
 										);
+
+		fileIndex++;
 
 		tempFiles.push_back(fileInfo);
 	};
@@ -634,46 +648,14 @@ static PyObject *torrent_setFilterOut(PyObject *self, PyObject *args)
 	long numFiles = handles->at(index).get_torrent_info().num_files();
 	assert(PyList_Size(filterOutObject) ==  numFiles);
 
-	if (filterOuts->at(index) == NULL)
-		filterOuts->at(index) = new filterOut_t(numFiles);
-
 	for (long i = 0; i < numFiles; i++)
 	{
-		filterOuts->at(index)->at(i) = PyInt_AsLong(PyList_GetItem(filterOutObject, i));
+		filterOuts->at(index).at(i) = PyInt_AsLong(PyList_GetItem(filterOutObject, i));
 	};
 
-	handles->at(index).filter_files(*filterOuts->at(index));
+	handles->at(index).filter_files(filterOuts->at(index));
 
 	Py_INCREF(Py_None); return Py_None;
-}
-
-static PyObject *torrent_getFilterOut(PyObject *self, PyObject *args)
-{
-	long uniqueID;
-	PyArg_ParseTuple(args, "i", &uniqueID);
-	long index = get_index_from_unique(uniqueID);
-
-	if (filterOuts->at(index) == NULL)
-	{
-		Py_INCREF(Py_None);
-		return Py_None;
-	};
-
-	long numFiles = handles->at(index).get_torrent_info().num_files();
-
-	assert(numFiles == filterOuts->at(index).size());
-
-	PyObject *ret = PyTuple_New(numFiles);
-	PyObject *curr;
-
-	for (long i = 0; i < numFiles; i++)
-	{
-		curr = PyInt_FromLong((*filterOuts->at(index))[i]);
-
-		PyTuple_SetItem(ret, i, curr);
-	};
-
-	return ret;
 }
 
 static PyObject *torrent_constants(PyObject *self, PyObject *args)
@@ -709,7 +691,6 @@ static PyMethodDef TorrentMethods[] = {
 	{"hasIncomingConnections",    torrent_hasIncomingConnections, METH_VARARGS, "Has Incoming Connections?"},
 	{"getPeerInfo",					torrent_getPeerInfo, 			METH_VARARGS, "Get all peer info."},
 	{"getFileInfo",					torrent_getFileInfo, 			METH_VARARGS, "Get all file info."},
-	{"getFilterOut",					torrent_getFilterOut, 			METH_VARARGS, "."},
 	{"setFilterOut",					torrent_setFilterOut, 			METH_VARARGS, "."},
 	{"constants",						torrent_constants, 				METH_VARARGS, "Get the constants."},
 	{NULL}        /* Sentinel */
