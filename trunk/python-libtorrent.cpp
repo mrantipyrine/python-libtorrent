@@ -95,6 +95,7 @@ long get_index_from_unique(long uniqueID)
 			return i;
 
 	assert(1 == 0);
+	printf("Critical Error! No such uniqueID (%d, %d)\r\n", int(uniqueID), int(uniqueIDs->size()));
 	return -1;
 }
 
@@ -631,20 +632,48 @@ static PyObject *torrent_setFilterOut(PyObject *self, PyObject *args)
 	long index = get_index_from_unique(uniqueID);
 
 	long numFiles = handles->at(index).get_torrent_info().num_files();
-	assert(PyObject_Length(filterOutObject) ==  numFiles);
+	assert(PyList_Size(filterOutObject) ==  numFiles);
 
 	if (filterOuts->at(index) == NULL)
 		filterOuts->at(index) = new filterOut_t(numFiles);
 
 	for (long i = 0; i < numFiles; i++)
 	{
-		filterOuts->at(index)->at(i) = PyInt_AsLong(PyTuple_GetItem(filterOutObject, i));
-		printf("File: %i  :  %i\r\n", int(i), int(filterOuts->at(index)->at(i)));
+		filterOuts->at(index)->at(i) = PyInt_AsLong(PyList_GetItem(filterOutObject, i));
 	};
 
 	handles->at(index).filter_files(*filterOuts->at(index));
 
 	Py_INCREF(Py_None); return Py_None;
+}
+
+static PyObject *torrent_getFilterOut(PyObject *self, PyObject *args)
+{
+	long uniqueID;
+	PyArg_ParseTuple(args, "i", &uniqueID);
+	long index = get_index_from_unique(uniqueID);
+
+	if (filterOuts->at(index) == NULL)
+	{
+		Py_INCREF(Py_None);
+		return Py_None;
+	};
+
+	long numFiles = handles->at(index).get_torrent_info().num_files();
+
+	assert(numFiles == filterOuts->at(index).size());
+
+	PyObject *ret = PyTuple_New(numFiles);
+	PyObject *curr;
+
+	for (long i = 0; i < numFiles; i++)
+	{
+		curr = PyInt_FromLong((*filterOuts->at(index))[i]);
+
+		PyTuple_SetItem(ret, i, curr);
+	};
+
+	return ret;
 }
 
 static PyObject *torrent_constants(PyObject *self, PyObject *args)
@@ -680,6 +709,8 @@ static PyMethodDef TorrentMethods[] = {
 	{"hasIncomingConnections",    torrent_hasIncomingConnections, METH_VARARGS, "Has Incoming Connections?"},
 	{"getPeerInfo",					torrent_getPeerInfo, 			METH_VARARGS, "Get all peer info."},
 	{"getFileInfo",					torrent_getFileInfo, 			METH_VARARGS, "Get all file info."},
+	{"getFilterOut",					torrent_getFilterOut, 			METH_VARARGS, "."},
+	{"setFilterOut",					torrent_setFilterOut, 			METH_VARARGS, "."},
 	{"constants",						torrent_constants, 				METH_VARARGS, "Get the constants."},
 	{NULL}        /* Sentinel */
 };
