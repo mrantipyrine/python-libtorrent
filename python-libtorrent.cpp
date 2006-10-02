@@ -506,19 +506,22 @@ static PyObject *torrent_popEvent(PyObject *self, PyObject *args)
 	alert *poppedAlert = a.get();
 
 	if (!poppedAlert)
-		return Py_BuildValue("{s:i}", "eventType", EVENT_NULL);
-	else if (dynamic_cast<torrent_finished_alert*>(poppedAlert))
+	{
+		Py_INCREF(Py_None); return Py_None;
+	} else if (dynamic_cast<torrent_finished_alert*>(poppedAlert))
 	{
 		torrent_handle handle = (dynamic_cast<torrent_finished_alert*>(poppedAlert))->handle;
 
 		return Py_BuildValue("{s:i,s:i}", "eventType", EVENT_FINISHED,
-													 "torrentIndex", get_torrent_index(handle));
+													 "uniqueID",  uniqueIDs->at(get_torrent_index(handle)));
 	} else if (dynamic_cast<peer_error_alert*>(poppedAlert))
 	{
-		peer_id peerID = (dynamic_cast<peer_error_alert*>(poppedAlert))->pid;
+		peer_id     peerID = (dynamic_cast<peer_error_alert*>(poppedAlert))->pid;
+		std::string peerIP = (dynamic_cast<peer_error_alert*>(poppedAlert))->ip.address().to_string();
 
 		return Py_BuildValue("{s:i,s:s,s:s}",	"eventType", EVENT_PEER_ERROR,
 															"clientID",  identify_client(peerID).c_str(),
+															"clientIP",  peerIP.c_str(),
 															"message",   a->msg().c_str()                 );
 	} else if (dynamic_cast<invalid_request_alert*>(poppedAlert))
 	{
