@@ -472,13 +472,13 @@ static PyObject *torrent_getState(PyObject *self, PyObject *args)
 		else
 			total_peers++;
 
-	return Py_BuildValue("{s:i,s:i,s:i,s:f,s:f,s:i,s:f,s:i,s:f,s:i,s:s,s:s,s:f,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i}",
+	return Py_BuildValue("{s:l,s:l,s:l,s:f,s:f,s:d,s:f,s:l,s:f,s:l,s:s,s:s,s:f,s:d,s:l,s:l,s:l,s:d,s:l,s:l,s:l,s:l}",
 								"state",					s.state,
 								"numPeers", 			s.num_peers,
 								"numSeeds", 			s.num_seeds,
 								"distributedCopies", s.distributed_copies,
 								"downloadRate", 		s.download_rate,
-								"totalDownload", 		long(s.total_download),
+								"totalDownload", 		double(s.total_download),
 								"uploadRate", 			s.upload_rate,
 								"totalUpload", 		long(s.total_upload),
 								"ratio",					float(s.total_payload_download)/float(s.total_payload_upload),
@@ -486,11 +486,11 @@ static PyObject *torrent_getState(PyObject *self, PyObject *args)
 								"nextAnnounce",		boost::posix_time::to_simple_string(s.next_announce).c_str(),
 								"tracker",				s.current_tracker.c_str(),
 								"progress",				float(s.progress),
-								"totalDone",			long(s.total_done),
+								"totalDone",			double(s.total_done),
 								"totalPieces",			long(s.pieces),
 								"piecesDone",			long(s.num_pieces),
 								"blockSize",			long(s.block_size),
-								"totalSize",			long(i.total_size()),
+								"totalSize",			double(i.total_size()),
 								"pieceLength",			long(i.piece_length()),
 								"numPieces",			long(i.num_pieces()),
 								"totalSeeds",			total_seeds,
@@ -563,11 +563,11 @@ static PyObject *torrent_getPeerInfo(PyObject *self, PyObject *args)
 				pieces_had++;
 
 		peerInfo = Py_BuildValue(
-								"{s:f,s:i,s:f,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:s,s:i,s:s,s:f}",
+								"{s:f,s:d,s:f,s:d,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:s,s:i,s:s,s:f}",
 								"downloadSpeed", 			float(peers[i].down_speed),
-								"totalDownload", 			long(peers[i].total_download),
+								"totalDownload", 			double(peers[i].total_download),
 								"uploadSpeed", 			float(peers[i].up_speed),
-								"totalUpload", 			long(peers[i].total_upload),
+								"totalUpload", 			double(peers[i].total_upload),
 								"downloadQueueLength",  long(peers[i].download_queue_length),
 								"uploadQueueLength", 	long(peers[i].upload_queue_length),
 								"isInteresting",			long((peers[i].flags & peer_info::interesting) != 0),
@@ -617,10 +617,10 @@ static PyObject *torrent_getFileInfo(PyObject *self, PyObject *args)
 		file_entry const &currFile = (*i);
 
 		fileInfo = Py_BuildValue(
-								"{s:s,s:i,s:i,s:f,s:i}",
+								"{s:s,s:d,s:d,s:f,s:i}",
 								"path",				currFile.path.string().c_str(),
-								"offset", 			long(currFile.offset),
-								"size", 				long(currFile.size),
+								"offset", 			double(currFile.offset),
+								"size", 				double(currFile.size),
 								"progress",			progresses[i - start]*100.0,
 								"filteredOut",		long(filterOut.at(fileIndex))
 										);
