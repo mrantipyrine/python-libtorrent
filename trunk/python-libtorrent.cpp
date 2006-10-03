@@ -326,7 +326,7 @@ static PyObject *torrent_setDownloadRateLimit(PyObject *self, PyObject *args)
 {
 	long arg;
 	PyArg_ParseTuple(args, "i", &arg);
-
+printf("Capping download to %d bytes per second\r\n", (int)arg);
 	ses->set_download_rate_limit(arg);
 
 	Py_INCREF(Py_None); return Py_None;
@@ -336,7 +336,7 @@ static PyObject *torrent_setUploadRateLimit(PyObject *self, PyObject *args)
 {
 	long arg;
 	PyArg_ParseTuple(args, "i", &arg);
-
+printf("Capping upload to %d bytes per second\r\n", (int)arg);
 	ses->set_upload_rate_limit(arg);
 
 	Py_INCREF(Py_None); return Py_None;
@@ -412,8 +412,9 @@ static PyObject *torrent_getNumTorrents(PyObject *self, PyObject *args)
 
 static PyObject *torrent_reannounce(PyObject *self, PyObject *args)
 {
-	long index;
-	PyArg_ParseTuple(args, "i", &index);
+	long uniqueID;
+	PyArg_ParseTuple(args, "i", &uniqueID);
+	long index = get_index_from_unique(uniqueID);
 
 	handles->at(index).force_reannounce();
 
@@ -472,7 +473,7 @@ static PyObject *torrent_getState(PyObject *self, PyObject *args)
 		else
 			total_peers++;
 
-	return Py_BuildValue("{s:l,s:l,s:l,s:f,s:f,s:d,s:f,s:l,s:f,s:l,s:s,s:s,s:f,s:d,s:l,s:l,s:l,s:d,s:l,s:l,s:l,s:l}",
+	return Py_BuildValue("{s:l,s:l,s:l,s:f,s:f,s:d,s:f,s:l,s:f,s:l,s:s,s:s,s:f,s:d,s:l,s:l,s:l,s:d,s:l,s:l,s:l,s:l,s:l,s:l}",
 								"state",					s.state,
 								"numPeers", 			s.num_peers,
 								"numSeeds", 			s.num_seeds,
@@ -494,7 +495,9 @@ static PyObject *torrent_getState(PyObject *self, PyObject *args)
 								"pieceLength",			long(i.piece_length()),
 								"numPieces",			long(i.num_pieces()),
 								"totalSeeds",			total_seeds,
-								"totalPeers",			total_peers);
+								"totalPeers",			total_peers,
+								"isPaused",				long(handles->at(index).is_paused()),
+								"isSeed",				long(handles->at(index).is_seed()));
 };
 
 static PyObject *torrent_popEvent(PyObject *self, PyObject *args)
