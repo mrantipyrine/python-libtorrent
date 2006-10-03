@@ -344,10 +344,10 @@ printf("Capping upload to %d bytes per second\r\n", (int)arg);
 
 static PyObject *torrent_setListenOn(PyObject *self, PyObject *args)
 {
-	long port;
-	PyArg_ParseTuple(args, "i", &port);
+	long portStart, portEnd;
+	PyArg_ParseTuple(args, "ii", &portStart, &portEnd);
 
-	ses->listen_on(std::make_pair(port, port + 10), "");
+	ses->listen_on(std::make_pair(portStart, portEnd), "");
 
 	Py_INCREF(Py_None); return Py_None;
 }
