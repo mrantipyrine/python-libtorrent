@@ -93,15 +93,15 @@ long get_torrent_index(torrent_handle &handle)
 
 void print_uniqueIDs()
 {
-	for (unsigned long i = 0; i < uniqueIDs->size(); i++)
-		printf("--uniqueIDs[%ld] = %ld\r\n", i, (*uniqueIDs)[i]);
+//	for (unsigned long i = 0; i < uniqueIDs->size(); i++)
+//		printf("--uniqueIDs[%ld] = %ld\r\n", i, (*uniqueIDs)[i]);
 }
 
 long get_index_from_unique(long uniqueID)
 {
 	assert(handles->size() == uniqueIDs->size());
 
-	printf("Request for uniqueID: %ld\r\n", uniqueID);
+//	printf("Request for uniqueID: %ld\r\n", uniqueID);
 	print_uniqueIDs();
 
 	for (unsigned long i = 0; i < uniqueIDs->size(); i++)
@@ -163,7 +163,7 @@ long internal_add_torrent(std::string const& torrent
 	assert(handles->size() == uniqueIDs->size());
 	assert(handles->size() == filterOuts->size());
 
-	printf("Added torrent, uniqueID: %ld\r\n", uniqueCounter - 1);
+//	printf("Added torrent, uniqueID: %ld\r\n", uniqueCounter - 1);
 	print_uniqueIDs();
 
 	return (uniqueCounter - 1);
