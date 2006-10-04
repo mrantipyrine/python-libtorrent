@@ -30,6 +30,11 @@ Some code portions were derived from work by Arvid Norberg.
 using namespace libtorrent;
 using boost::filesystem::path;
 
+//----------------
+// DEBUG!
+//----------------
+
+#undef NDEBUG
 
 //-----------------
 // START
@@ -86,16 +91,25 @@ long get_torrent_index(torrent_handle &handle)
 	return -1;
 }
 
+void print_uniqueIDs()
+{
+	for (unsigned long i = 0; i < uniqueIDs->size(); i++)
+		printf("--uniqueIDs[%ld] = %ld\r\n", i, (*uniqueIDs)[i]);
+}
+
 long get_index_from_unique(long uniqueID)
 {
 	assert(handles->size() == uniqueIDs->size());
+
+	printf("Request for uniqueID: %ld\r\n", uniqueID);
+	print_uniqueIDs();
 
 	for (unsigned long i = 0; i < uniqueIDs->size(); i++)
 		if ((*uniqueIDs)[i] == uniqueID)
 			return i;
 
 	assert(1 == 0);
-	printf("Critical Error! No such uniqueID (%d, %d)\r\n", int(uniqueID), int(uniqueIDs->size()));
+	printf("Critical Error! No such uniqueID (%ld, %ld)\r\n", uniqueID, (long)uniqueIDs->size());
 	return -1;
 }
 
@@ -148,6 +162,9 @@ long internal_add_torrent(std::string const& torrent
 
 	assert(handles->size() == uniqueIDs->size());
 	assert(handles->size() == filterOuts->size());
+
+	printf("Added torrent, uniqueID: %ld\r\n", uniqueCounter - 1);
+	print_uniqueIDs();
 
 	return (uniqueCounter - 1);
 }
