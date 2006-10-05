@@ -108,19 +108,19 @@ long get_torrent_index(torrent_handle &handle)
 
 void print_uniqueIDs()
 {
-#ifdef AMD64
-	for (unsigned long i = 0; i < uniqueIDs->size(); i++)
-		printf("--uniqueIDs[%ld] = %ld\r\n", i, (*uniqueIDs)[i]);
-#endif
+//#ifdef AMD64
+//	for (unsigned long i = 0; i < uniqueIDs->size(); i++)
+//		printf("--uniqueIDs[%ld] = %ld\r\n", i, (*uniqueIDs)[i]);
+//#endif
 }
 
 long get_index_from_unique(long uniqueID)
 {
 	assert(handles->size() == uniqueIDs->size());
 
-#ifdef AMD64
-	printf("Request for uniqueID: %ld\r\n", uniqueID);
-#endif
+//#ifdef AMD64
+//	printf("Request for uniqueID: %ld\r\n", uniqueID);
+//#endif
 	print_uniqueIDs();
 
 	for (unsigned long i = 0; i < uniqueIDs->size(); i++)
