@@ -243,7 +243,7 @@ static PyObject *torrent_init(PyObject *self, PyObject *args)
 	char *clientID, *userAgent;
 	long v1,v2,v3,v4;
 
-	PyArg_ParseTuple(args, "siiiiss", &clientID, &v1, &v2, &v3, &v4, &userAgent);
+	PyArg_ParseTuple(args, "siiiis", &clientID, &v1, &v2, &v3, &v4, &userAgent);
 
 	settings   		= new session_settings;
 	ses        		= new session(libtorrent::fingerprint(clientID, v1, v2, v3, v4));
