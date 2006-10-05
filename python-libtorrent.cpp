@@ -31,16 +31,26 @@ using namespace libtorrent;
 using boost::filesystem::path;
 
 //----------------
+// x86_64?
+//----------------
+
+//#define AMD64
+
+//----------------
 // DEBUG!
 //----------------
 
 #undef NDEBUG
 
-//#define DEBUG64
-
 //-----------------
 // START
 //-----------------
+
+#ifdef AMD64
+#define pythonLong int
+#else
+#define pythonLong long
+#endif
 
 #define EVENT_NULL            0
 #define EVENT_FINISHED        1
@@ -98,7 +108,7 @@ long get_torrent_index(torrent_handle &handle)
 
 void print_uniqueIDs()
 {
-#ifdef DEBUG64
+#ifdef AMD64
 	for (unsigned long i = 0; i < uniqueIDs->size(); i++)
 		printf("--uniqueIDs[%ld] = %ld\r\n", i, (*uniqueIDs)[i]);
 #endif
@@ -108,7 +118,7 @@ long get_index_from_unique(long uniqueID)
 {
 	assert(handles->size() == uniqueIDs->size());
 
-#ifdef DEBUG64
+#ifdef AMD64
 	printf("Request for uniqueID: %ld\r\n", uniqueID);
 #endif
 	print_uniqueIDs();
@@ -247,7 +257,7 @@ static PyObject *torrent_init(PyObject *self, PyObject *args)
 	path::default_name_check(empty_name_check);
 
 	char *clientID, *userAgent;
-	long v1,v2,v3,v4;
+	pythonLong v1,v2,v3,v4;
 
 	PyArg_ParseTuple(args, "siiiis", &clientID, &v1, &v2, &v3, &v4, &userAgent);
 
@@ -351,7 +361,7 @@ static PyObject *torrent_quit(PyObject *self, PyObject *args)
 
 static PyObject *torrent_setMaxHalfOpenConnections(PyObject *self, PyObject *args)
 {
-	long arg;
+	pythonLong arg;
 	PyArg_ParseTuple(args, "i", &arg);
 
 	ses->set_max_half_open_connections(arg);
@@ -361,7 +371,7 @@ static PyObject *torrent_setMaxHalfOpenConnections(PyObject *self, PyObject *arg
 
 static PyObject *torrent_setDownloadRateLimit(PyObject *self, PyObject *args)
 {
-	long arg;
+	pythonLong arg;
 	PyArg_ParseTuple(args, "i", &arg);
 printf("Capping download to %d bytes per second\r\n", (int)arg);
 	ses->set_download_rate_limit(arg);
@@ -371,7 +381,7 @@ printf("Capping download to %d bytes per second\r\n", (int)arg);
 
 static PyObject *torrent_setUploadRateLimit(PyObject *self, PyObject *args)
 {
-	long arg;
+	pythonLong arg;
 	PyArg_ParseTuple(args, "i", &arg);
 printf("Capping upload to %d bytes per second\r\n", (int)arg);
 	ses->set_upload_rate_limit(arg);
@@ -381,7 +391,7 @@ printf("Capping upload to %d bytes per second\r\n", (int)arg);
 
 static PyObject *torrent_setListenOn(PyObject *self, PyObject *args)
 {
-	long portStart, portEnd;
+	pythonLong portStart, portEnd;
 	PyArg_ParseTuple(args, "ii", &portStart, &portEnd);
 
 	ses->listen_on(std::make_pair(portStart, portEnd), "");
@@ -398,12 +408,12 @@ static PyObject *torrent_isListening(PyObject *self, PyObject *args)
 
 static PyObject *torrent_listeningPort(PyObject *self, PyObject *args)
 {
-	return Py_BuildValue("i", (long)ses->listen_port());
+	return Py_BuildValue("i", (pythonLong)ses->listen_port());
 }
 
 static PyObject *torrent_setMaxUploads(PyObject *self, PyObject *args)
 {
-	long max_up;
+	pythonLong max_up;
 	PyArg_ParseTuple(args, "i", &max_up);
 
 	ses->set_max_uploads(max_up);
@@ -413,7 +423,7 @@ static PyObject *torrent_setMaxUploads(PyObject *self, PyObject *args)
 
 static PyObject *torrent_setMaxConnections(PyObject *self, PyObject *args)
 {
-	long max_conn;
+	pythonLong max_conn;
 	PyArg_ParseTuple(args, "i", &max_conn);
 
 	ses->set_max_connections(max_conn);
@@ -433,7 +443,7 @@ static PyObject *torrent_addTorrent(PyObject *self, PyObject *args)
 
 static PyObject *torrent_removeTorrent(PyObject *self, PyObject *args)
 {
-	long uniqueID;
+	pythonLong uniqueID;
 	PyArg_ParseTuple(args, "i", &uniqueID);
 	long index = get_index_from_unique(uniqueID);
 
@@ -449,7 +459,7 @@ static PyObject *torrent_getNumTorrents(PyObject *self, PyObject *args)
 
 static PyObject *torrent_reannounce(PyObject *self, PyObject *args)
 {
-	long uniqueID;
+	pythonLong uniqueID;
 	PyArg_ParseTuple(args, "i", &uniqueID);
 	long index = get_index_from_unique(uniqueID);
 
@@ -460,7 +470,7 @@ static PyObject *torrent_reannounce(PyObject *self, PyObject *args)
 
 static PyObject *torrent_pause(PyObject *self, PyObject *args)
 {
-	long uniqueID;
+	pythonLong uniqueID;
 	PyArg_ParseTuple(args, "i", &uniqueID);
 	long index = get_index_from_unique(uniqueID);
 
@@ -471,7 +481,7 @@ static PyObject *torrent_pause(PyObject *self, PyObject *args)
 
 static PyObject *torrent_resume(PyObject *self, PyObject *args)
 {
-	long uniqueID;
+	pythonLong uniqueID;
 	PyArg_ParseTuple(args, "i", &uniqueID);
 	long index = get_index_from_unique(uniqueID);
 
@@ -482,7 +492,7 @@ static PyObject *torrent_resume(PyObject *self, PyObject *args)
 
 static PyObject *torrent_getName(PyObject *self, PyObject *args)
 {
-	long uniqueID;
+	pythonLong uniqueID;
 	PyArg_ParseTuple(args, "i", &uniqueID);
 	long index = get_index_from_unique(uniqueID);
 
@@ -491,7 +501,7 @@ static PyObject *torrent_getName(PyObject *self, PyObject *args)
 
 static PyObject *torrent_getState(PyObject *self, PyObject *args)
 {
-	long uniqueID;
+	pythonLong uniqueID;
 	PyArg_ParseTuple(args, "i", &uniqueID);
 	long index = get_index_from_unique(uniqueID);
 
@@ -585,7 +595,7 @@ static PyObject *torrent_hasIncomingConnections(PyObject *self, PyObject *args)
 
 static PyObject *torrent_getPeerInfo(PyObject *self, PyObject *args)
 {
-	long uniqueID;
+	pythonLong uniqueID;
 	PyArg_ParseTuple(args, "i", &uniqueID);
 	long index = get_index_from_unique(uniqueID);
 
@@ -636,7 +646,7 @@ static PyObject *torrent_getPeerInfo(PyObject *self, PyObject *args)
 
 static PyObject *torrent_getFileInfo(PyObject *self, PyObject *args)
 {
-	long uniqueID;
+	pythonLong uniqueID;
 	PyArg_ParseTuple(args, "i", &uniqueID);
 	long index = get_index_from_unique(uniqueID);
 
@@ -683,7 +693,7 @@ static PyObject *torrent_getFileInfo(PyObject *self, PyObject *args)
 
 static PyObject *torrent_setFilterOut(PyObject *self, PyObject *args)
 {
-	long uniqueID;
+	pythonLong uniqueID;
 	PyObject *filterOutObject;
 	PyArg_ParseTuple(args, "iO", &uniqueID, &filterOutObject);
 	long index = get_index_from_unique(uniqueID);
