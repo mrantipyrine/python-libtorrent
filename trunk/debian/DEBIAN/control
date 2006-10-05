@@ -1,5 +1,5 @@
 Package: python-libtorrent
-Version: 0.2.0
+Version: 0.2.0a
 Section: base
 Priority: optional
 Architecture: all

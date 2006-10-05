@@ -63,6 +63,8 @@ typedef uniqueIDs_t::iterator 		uniqueIDs_t_iterator;
 typedef std::vector<bool>				filterOut_t;
 typedef std::vector<filterOut_t>		filterOuts_t;
 typedef filterOuts_t::iterator		filterOuts_t_iterator;
+typedef std::vector<std::string>		torrentNames_t;
+typedef torrentNames_t::iterator		torrentNames_t_iterator;
 
 // Global variables
 
@@ -71,8 +73,9 @@ session          *ses 				= NULL;
 handles_t        *handles 			= NULL;
 uniqueIDs_t      *uniqueIDs		= NULL;
 filterOuts_t     *filterOuts		= NULL;
-PyObject         *constants;
+PyObject         *constants		= NULL;
 long					uniqueCounter	= 0;
+torrentNames_t   *torrentNames   = NULL;
 
 // Internal functions
 
@@ -129,8 +132,9 @@ long internal_add_torrent(std::string const& torrent
 	try
 	{
 		std::stringstream s;
-		s << t.name() << ".fastresume";
-		boost::filesystem::ifstream resume_file(save_path / s.str(), std::ios_base::binary);
+		s << torrent << ".fastresume";
+//		printf("Loading fastresume from: %s\r\n", s.str().c_str());
+		boost::filesystem::ifstream resume_file(s.str(), std::ios_base::binary);
 		resume_file.unsetf(std::ios_base::skipws);
 		resume_data = bdecode(
 			std::istream_iterator<char>(resume_file)
@@ -163,8 +167,12 @@ long internal_add_torrent(std::string const& torrent
 	assert(handles->size() == uniqueIDs->size());
 	assert(handles->size() == filterOuts->size());
 
+	torrentNames->push_back(torrent);
+
+	assert(handles->size() == torrentNames->size());
+
 //	printf("Added torrent, uniqueID: %ld\r\n", uniqueCounter - 1);
-	print_uniqueIDs();
+//	print_uniqueIDs();
 
 	return (uniqueCounter - 1);
 }
@@ -183,9 +191,9 @@ void internal_remove_torrent(long index)
 		entry data = h.write_resume_data();
 
 		std::stringstream s;
-		s << h.get_torrent_info().name() << ".fastresume";
-
-		boost::filesystem::ofstream out(h.save_path() / s.str(), std::ios_base::binary);
+		s << torrentNames->at(index) << ".fastresume";
+//		printf("Saving fastresume to: %s\r\n", s.str().c_str());
+		boost::filesystem::ofstream out(s.str(), std::ios_base::binary);
 
 		out.unsetf(std::ios_base::skipws);
 
@@ -203,8 +211,12 @@ void internal_remove_torrent(long index)
 	filterOuts_t_iterator it3 = filterOuts->begin() + index;
 	filterOuts->erase(it3);
 
+	torrentNames_t_iterator it4 = torrentNames->begin() + index;
+	torrentNames->erase(it4);
+
 	assert(handles->size() == uniqueIDs->size());
 	assert(handles->size() == filterOuts->size());
+	assert(handles->size() == torrentNames->size());
 }
 
 long get_peer_index(libtorrent::tcp::endpoint addr, std::vector<peer_info> const& peers)
@@ -231,19 +243,21 @@ static PyObject *torrent_init(PyObject *self, PyObject *args)
 	char *clientID, *userAgent;
 	long v1,v2,v3,v4;
 
-	PyArg_ParseTuple(args, "siiiis", &clientID, &v1, &v2, &v3, &v4, &userAgent);
+	PyArg_ParseTuple(args, "siiiiss", &clientID, &v1, &v2, &v3, &v4, &userAgent);
 
-	settings   = new session_settings;
-	ses        = new session(libtorrent::fingerprint(clientID, v1, v2, v3, v4));
-	handles    = new handles_t;
-	uniqueIDs  = new uniqueIDs_t;
-	filterOuts = new filterOuts_t;
+	settings   		= new session_settings;
+	ses        		= new session(libtorrent::fingerprint(clientID, v1, v2, v3, v4));
+	handles    		= new handles_t;
+	uniqueIDs  		= new uniqueIDs_t;
+	filterOuts 		= new filterOuts_t;
+	torrentNames	= new torrentNames_t;
 
 	// Init values
 
 	handles->reserve(10); // It doesn't cost us too much, 10 handles, does it? Reserve that space.
 	uniqueIDs->reserve(10);
 	filterOuts->reserve(10);
+	torrentNames->reserve(10);
 
 	settings->user_agent = std::string(userAgent) + " (libtorrent " LIBTORRENT_VERSION ")";
 
