@@ -36,6 +36,8 @@ using boost::filesystem::path;
 
 #undef NDEBUG
 
+//#define DEBUG64
+
 //-----------------
 // START
 //-----------------
@@ -96,15 +98,19 @@ long get_torrent_index(torrent_handle &handle)
 
 void print_uniqueIDs()
 {
-//	for (unsigned long i = 0; i < uniqueIDs->size(); i++)
-//		printf("--uniqueIDs[%ld] = %ld\r\n", i, (*uniqueIDs)[i]);
+#ifdef DEBUG64
+	for (unsigned long i = 0; i < uniqueIDs->size(); i++)
+		printf("--uniqueIDs[%ld] = %ld\r\n", i, (*uniqueIDs)[i]);
+#endif
 }
 
 long get_index_from_unique(long uniqueID)
 {
 	assert(handles->size() == uniqueIDs->size());
 
-//	printf("Request for uniqueID: %ld\r\n", uniqueID);
+#ifdef DEBUG64
+	printf("Request for uniqueID: %ld\r\n", uniqueID);
+#endif
 	print_uniqueIDs();
 
 	for (unsigned long i = 0; i < uniqueIDs->size(); i++)
