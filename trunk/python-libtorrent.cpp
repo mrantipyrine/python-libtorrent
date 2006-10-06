@@ -520,7 +520,7 @@ static PyObject *torrent_getState(PyObject *self, PyObject *args)
 		else
 			total_peers++;
 
-	return Py_BuildValue("{s:l,s:l,s:l,s:f,s:f,s:d,s:f,s:l,s:f,s:l,s:s,s:s,s:f,s:d,s:l,s:l,s:l,s:d,s:l,s:l,s:l,s:l,s:l,s:l}",
+	return Py_BuildValue("{s:l,s:l,s:l,s:f,s:f,s:d,s:f,s:l,s:f,s:l,s:s,s:s,s:f,s:d,s:l,s:l,s:l,s:d,s:l,s:l,s:l,s:l,s:l,s:l,s:d,s:d}",
 								"state",					s.state,
 								"numPeers", 			s.num_peers,
 								"numSeeds", 			s.num_seeds,
@@ -544,7 +544,9 @@ static PyObject *torrent_getState(PyObject *self, PyObject *args)
 								"totalSeeds",			total_seeds,
 								"totalPeers",			total_peers,
 								"isPaused",				long(handles->at(index).is_paused()),
-								"isSeed",				long(handles->at(index).is_seed()));
+								"isSeed",				long(handles->at(index).is_seed()),
+								"totalWanted",			double(s.total_wanted),
+								"totalWantedDone",	double(s.total_wanted_done));
 };
 
 static PyObject *torrent_popEvent(PyObject *self, PyObject *args)
@@ -586,11 +588,17 @@ static PyObject *torrent_popEvent(PyObject *self, PyObject *args)
 												 "message",   a->msg().c_str()     );
 }
 
-static PyObject *torrent_hasIncomingConnections(PyObject *self, PyObject *args)
+static PyObject *torrent_getSessionInfo(PyObject *self, PyObject *args)
 {
-	session_status sess_stat = ses->status();
+	session_status s = ses->status();
 
-	return Py_BuildValue("i", sess_stat.has_incoming_connections);
+	return Py_BuildValue("{s:l,s:f,s:f,s:f,s:f,s:l}",
+								"hasIncomingConnections",		long(s.has_incoming_connections),
+								"uploadRate",						float(s.upload_rate),
+								"downloadRate",					float(s.download_rate),
+								"payloadUploadRate",				float(s.payload_upload_rate),
+								"payloadDownloadRate",			float(s.payload_download_rate),
+								"numPeers",							long(s.num_peers));
 }
 
 static PyObject *torrent_getPeerInfo(PyObject *self, PyObject *args)
@@ -741,7 +749,7 @@ static PyMethodDef TorrentMethods[] = {
 	{"getName",                   torrent_getName,              METH_VARARGS, "Gets the name of a torrent."},
 	{"getState",                  torrent_getState,             METH_VARARGS, "Get torrent state."},
 	{"popEvent",                  torrent_popEvent,             METH_VARARGS, "Pops an event."},
-	{"hasIncomingConnections",    torrent_hasIncomingConnections, METH_VARARGS, "Has Incoming Connections?"},
+	{"getSessionInfo",  				torrent_getSessionInfo, 		METH_VARARGS, "All session info"},
 	{"getPeerInfo",					torrent_getPeerInfo, 			METH_VARARGS, "Get all peer info."},
 	{"getFileInfo",					torrent_getFileInfo, 			METH_VARARGS, "Get all file info."},
 	{"setFilterOut",					torrent_setFilterOut, 			METH_VARARGS, "."},
