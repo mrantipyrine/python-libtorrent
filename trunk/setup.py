@@ -25,7 +25,7 @@ module1 = Extension('torrent',
 										 'python-libtorrent.cpp'])
 
 setup (name = 'Python-libtorrent',
-       version = '1.0',
+       version = '0.2.0b',
        description = 'Wrapper code for libtorrent C++ torrent library (Sourceforge, not Rakshasa)',
        ext_modules = [module1])
 
