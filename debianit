@@ -1,5 +1,5 @@
-svn rm ./debs/*.deb
+#svn rm ./debs/*.deb
 mkdir ./debian/usr/lib/python2.4/site-packages/
 cp ./build/lib.linux-i686-2.4/* ./debian/usr/lib/python2.4/site-packages/
 dpkg-deb --build debian ./debs/python-libtorrent-0.2.0b-i386.deb
-svn add ./debs/*.deb
+#svn add ./debs/*.deb
