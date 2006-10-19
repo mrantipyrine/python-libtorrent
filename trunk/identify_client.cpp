@@ -153,6 +153,7 @@ namespace
 		, map_entry("BS", "BTSlave")
 		, map_entry("BX", "BittorrentX")
 		, map_entry("CT", "CTorrent")
+		, map_entry("DE", "Deluge")
 		, map_entry("KT", "KTorrent")
 		, map_entry("LT", "libtorrent")
 		, map_entry("M",  "Mainline")
