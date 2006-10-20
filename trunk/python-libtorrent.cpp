@@ -61,11 +61,16 @@ using boost::filesystem::path;
 #define pythonLong long
 #endif
 
-#define EVENT_NULL            0
-#define EVENT_FINISHED        1
-#define EVENT_PEER_ERROR      2
-#define EVENT_INVALID_REQUEST 3
-#define EVENT_OTHER           4
+#define EVENT_NULL            				0
+#define EVENT_FINISHED        				1
+#define EVENT_PEER_ERROR      				2
+#define EVENT_INVALID_REQUEST 				3
+#define EVENT_FILE_ERROR						4
+#define EVENT_HASH_FAILED_ERROR				5
+#define EVENT_PEER_BAN_ERROR					6
+#define EVENT_FASTRESUME_REJECTED_ERROR	8
+#define EVENT_TRACKER							9
+#define EVENT_OTHER				           	10
 
 #define STATE_QUEUED           0
 #define STATE_CHECKING         1
@@ -320,11 +325,16 @@ static PyObject *torrent_init(PyObject *self, PyObject *args)
 	} else
 		printf("No DHT file found.\r\n");
 */
-	constants = Py_BuildValue("{s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i}",
+	constants = Py_BuildValue("{s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i}",
 										"EVENT_NULL",					EVENT_NULL,
 										"EVENT_FINISHED",				EVENT_FINISHED,
 										"EVENT_PEER_ERROR",			EVENT_PEER_ERROR,
 										"EVENT_INVALID_REQUEST",	EVENT_INVALID_REQUEST,
+										"EVENT_FILE_ERROR",			EVENT_FILE_ERROR,
+										"EVENT_HASH_FAILED_ERROR",	EVENT_HASH_FAILED_ERROR,
+										"EVENT_PEER_BAN_ERROR",		EVENT_PEER_BAN_ERROR,
+										"EVENT_FASTRESUME_REJECTED_ERROR", EVENT_FASTRESUME_REJECTED_ERROR,
+										"EVENT_TRACKER",				EVENT_TRACKER,
 										"EVENT_OTHER",					EVENT_OTHER,
 										"STATE_QUEUED",				STATE_QUEUED,
 										"STATE_CHECKING",				STATE_CHECKING,
@@ -580,10 +590,10 @@ static PyObject *torrent_popEvent(PyObject *self, PyObject *args)
 		peer_id     peerID = (dynamic_cast<peer_error_alert*>(poppedAlert))->pid;
 		std::string peerIP = (dynamic_cast<peer_error_alert*>(poppedAlert))->ip.address().to_string();
 
-		return Py_BuildValue("{s:i,s:s,s:s}",	"eventType", EVENT_PEER_ERROR,
-															"clientID",  identify_client(peerID).c_str(),
-															"clientIP",  peerIP.c_str(),
-															"message",   a->msg().c_str()                 );
+		return Py_BuildValue("{s:i,s:s,s:s,s:s}",	"eventType", EVENT_PEER_ERROR,
+																"clientID",  identify_client(peerID).c_str(),
+																"ip",			 peerIP.c_str(),
+																"message",   a->msg().c_str()                 );
 	} else if (dynamic_cast<invalid_request_alert*>(poppedAlert))
 	{
 		peer_id peerID = (dynamic_cast<invalid_request_alert*>(poppedAlert))->pid;
@@ -591,6 +601,69 @@ static PyObject *torrent_popEvent(PyObject *self, PyObject *args)
 		return Py_BuildValue("{s:i,s:s,s:s}",  "eventType", EVENT_INVALID_REQUEST,
 															"clientID",  identify_client(peerID).c_str(),
 													 		"message",   a->msg().c_str()                 );
+	} else if (dynamic_cast<file_error_alert*>(poppedAlert))
+	{
+		torrent_handle handle = (dynamic_cast<file_error_alert*>(poppedAlert))->handle;
+
+		return Py_BuildValue("{s:i,s:i,s:s}",  "eventType", EVENT_FILE_ERROR,
+															"uniqueID",  uniqueIDs->at(get_torrent_index(handle)),
+													 		"message",   a->msg().c_str()                 );
+	} else if (dynamic_cast<hash_failed_alert*>(poppedAlert))
+	{
+		torrent_handle handle = (dynamic_cast<hash_failed_alert*>(poppedAlert))->handle;
+
+		return Py_BuildValue("{s:i,s:i,s:i,s:s}",  "eventType",  EVENT_HASH_FAILED_ERROR,
+															"uniqueID",   uniqueIDs->at(get_torrent_index(handle)),
+															"pieceIndex", long((dynamic_cast<hash_failed_alert*>(poppedAlert))->piece_index),
+													 		"message",    a->msg().c_str()                 );
+	} else if (dynamic_cast<peer_ban_alert*>(poppedAlert))
+	{
+		torrent_handle handle = (dynamic_cast<peer_ban_alert*>(poppedAlert))->handle;
+		std::string peerIP = (dynamic_cast<peer_ban_alert*>(poppedAlert))->ip.address().to_string();
+
+		return Py_BuildValue("{s:i,s:i,s:s,s:s}",  "eventType",  EVENT_PEER_BAN_ERROR,
+															"uniqueID",   uniqueIDs->at(get_torrent_index(handle)),
+															"ip",			  peerIP.c_str(),
+													 		"message",    a->msg().c_str()                 );
+	} else if (dynamic_cast<fastresume_rejected_alert*>(poppedAlert))
+	{
+		torrent_handle handle = (dynamic_cast<fastresume_rejected_alert*>(poppedAlert))->handle;
+
+		return Py_BuildValue("{s:i,s:i,s:s}",  "eventType",  EVENT_FASTRESUME_REJECTED_ERROR,
+															"uniqueID",   uniqueIDs->at(get_torrent_index(handle)),
+													 		"message",    a->msg().c_str()                 );
+	} else if (dynamic_cast<tracker_announce_alert*>(poppedAlert))
+	{
+		torrent_handle handle = (dynamic_cast<tracker_announce_alert*>(poppedAlert))->handle;
+
+		return Py_BuildValue("{s:i,s:i,s:s,s:s}", "eventType",  		EVENT_TRACKER,
+																"uniqueID",   		uniqueIDs->at(get_torrent_index(handle)),
+																"trackerStatus",	"Announce sent",
+													 			"message",    		a->msg().c_str()                 );
+	} else if (dynamic_cast<tracker_alert*>(poppedAlert))
+	{
+		torrent_handle handle = (dynamic_cast<tracker_alert*>(poppedAlert))->handle;
+
+		return Py_BuildValue("{s:i,s:i,s:s,s:s}", "eventType",  		EVENT_TRACKER,
+																"uniqueID",   		uniqueIDs->at(get_torrent_index(handle)),
+																"trackerStatus",	"Bad response (status code=?)",
+													 			"message",    		a->msg().c_str()                 );
+	} else if (dynamic_cast<tracker_reply_alert*>(poppedAlert))
+	{
+		torrent_handle handle = (dynamic_cast<tracker_reply_alert*>(poppedAlert))->handle;
+
+		return Py_BuildValue("{s:i,s:i,s:s,s:s}", "eventType",  		EVENT_TRACKER,
+																"uniqueID",   		uniqueIDs->at(get_torrent_index(handle)),
+																"trackerStatus",	"Announce succeeded",
+													 			"message",    		a->msg().c_str()                 );
+	} else if (dynamic_cast<tracker_warning_alert*>(poppedAlert))
+	{
+		torrent_handle handle = (dynamic_cast<tracker_warning_alert*>(poppedAlert))->handle;
+
+		return Py_BuildValue("{s:i,s:i,s:s,s:s}", "eventType",  		EVENT_TRACKER,
+																"uniqueID",   		uniqueIDs->at(get_torrent_index(handle)),
+																"trackerStatus",	"Warning in response",
+													 			"message",    		a->msg().c_str()                 );
 	}
 
 	return Py_BuildValue("{s:i,s:s}", "eventType", EVENT_OTHER,
