@@ -110,12 +110,25 @@ bool empty_name_check(const std::string & name)
 	return 1;
 }
 
+long handle_exists(torrent_handle &handle)
+{
+	for (unsigned long i = 0; i < handles->size(); i++)
+		if ((*handles)[i] == handle)
+			return 1;
+
+	return 0;
+}
+
 long get_torrent_index(torrent_handle &handle)
 {
 	for (unsigned long i = 0; i < handles->size(); i++)
 		if ((*handles)[i] == handle)
+		{
+//			printf("Found: %li\r\n", i);
 			return i;
+		}
 
+	printf("Handle not found!\r\n");
 	assert(1 == 0);
 	return -1;
 }
@@ -583,8 +596,11 @@ static PyObject *torrent_popEvent(PyObject *self, PyObject *args)
 	{
 		torrent_handle handle = (dynamic_cast<torrent_finished_alert*>(poppedAlert))->handle;
 
-		return Py_BuildValue("{s:i,s:i}", "eventType", EVENT_FINISHED,
-													 "uniqueID",  uniqueIDs->at(get_torrent_index(handle)));
+		if (handle_exists(handle))
+			return Py_BuildValue("{s:i,s:i}", "eventType", EVENT_FINISHED,
+														 "uniqueID",  uniqueIDs->at(get_torrent_index(handle)));
+		else
+		{ Py_INCREF(Py_None); return Py_None; }
 	} else if (dynamic_cast<peer_error_alert*>(poppedAlert))
 	{
 		peer_id     peerID = (dynamic_cast<peer_error_alert*>(poppedAlert))->pid;
@@ -605,65 +621,89 @@ static PyObject *torrent_popEvent(PyObject *self, PyObject *args)
 	{
 		torrent_handle handle = (dynamic_cast<file_error_alert*>(poppedAlert))->handle;
 
-		return Py_BuildValue("{s:i,s:i,s:s}",  "eventType", EVENT_FILE_ERROR,
-															"uniqueID",  uniqueIDs->at(get_torrent_index(handle)),
-													 		"message",   a->msg().c_str()                 );
+		if (handle_exists(handle))
+			return Py_BuildValue("{s:i,s:i,s:s}",  "eventType", EVENT_FILE_ERROR,
+																"uniqueID",  uniqueIDs->at(get_torrent_index(handle)),
+														 		"message",   a->msg().c_str()                 );
+		else
+		{ Py_INCREF(Py_None); return Py_None; }
 	} else if (dynamic_cast<hash_failed_alert*>(poppedAlert))
 	{
 		torrent_handle handle = (dynamic_cast<hash_failed_alert*>(poppedAlert))->handle;
 
-		return Py_BuildValue("{s:i,s:i,s:i,s:s}",  "eventType",  EVENT_HASH_FAILED_ERROR,
-															"uniqueID",   uniqueIDs->at(get_torrent_index(handle)),
-															"pieceIndex", long((dynamic_cast<hash_failed_alert*>(poppedAlert))->piece_index),
-													 		"message",    a->msg().c_str()                 );
+		if (handle_exists(handle))
+			return Py_BuildValue("{s:i,s:i,s:i,s:s}",  "eventType",  EVENT_HASH_FAILED_ERROR,
+																"uniqueID",   uniqueIDs->at(get_torrent_index(handle)),
+																"pieceIndex", long((dynamic_cast<hash_failed_alert*>(poppedAlert))->piece_index),
+														 		"message",    a->msg().c_str()                 );
+		else
+		{ Py_INCREF(Py_None); return Py_None; }
 	} else if (dynamic_cast<peer_ban_alert*>(poppedAlert))
 	{
 		torrent_handle handle = (dynamic_cast<peer_ban_alert*>(poppedAlert))->handle;
 		std::string peerIP = (dynamic_cast<peer_ban_alert*>(poppedAlert))->ip.address().to_string();
 
-		return Py_BuildValue("{s:i,s:i,s:s,s:s}",  "eventType",  EVENT_PEER_BAN_ERROR,
-															"uniqueID",   uniqueIDs->at(get_torrent_index(handle)),
-															"ip",			  peerIP.c_str(),
-													 		"message",    a->msg().c_str()                 );
+		if (handle_exists(handle))
+			return Py_BuildValue("{s:i,s:i,s:s,s:s}",  "eventType",  EVENT_PEER_BAN_ERROR,
+																"uniqueID",   uniqueIDs->at(get_torrent_index(handle)),
+																"ip",			  peerIP.c_str(),
+														 		"message",    a->msg().c_str()                 );
+		else
+		{ Py_INCREF(Py_None); return Py_None; }
 	} else if (dynamic_cast<fastresume_rejected_alert*>(poppedAlert))
 	{
 		torrent_handle handle = (dynamic_cast<fastresume_rejected_alert*>(poppedAlert))->handle;
 
-		return Py_BuildValue("{s:i,s:i,s:s}",  "eventType",  EVENT_FASTRESUME_REJECTED_ERROR,
-															"uniqueID",   uniqueIDs->at(get_torrent_index(handle)),
-													 		"message",    a->msg().c_str()                 );
+		if (handle_exists(handle))
+			return Py_BuildValue("{s:i,s:i,s:s}",  "eventType",  EVENT_FASTRESUME_REJECTED_ERROR,
+																"uniqueID",   uniqueIDs->at(get_torrent_index(handle)),
+														 		"message",    a->msg().c_str()                 );
+		else
+		{ Py_INCREF(Py_None); return Py_None; }
 	} else if (dynamic_cast<tracker_announce_alert*>(poppedAlert))
 	{
 		torrent_handle handle = (dynamic_cast<tracker_announce_alert*>(poppedAlert))->handle;
 
-		return Py_BuildValue("{s:i,s:i,s:s,s:s}", "eventType",  		EVENT_TRACKER,
-																"uniqueID",   		uniqueIDs->at(get_torrent_index(handle)),
-																"trackerStatus",	"Announce sent",
-													 			"message",    		a->msg().c_str()                 );
+		if (handle_exists(handle))
+			return Py_BuildValue("{s:i,s:i,s:s,s:s}", "eventType",  		EVENT_TRACKER,
+																	"uniqueID",   		uniqueIDs->at(get_torrent_index(handle)),
+																	"trackerStatus",	"Announce sent",
+														 			"message",    		a->msg().c_str()                 );
+		else
+		{ Py_INCREF(Py_None); return Py_None; }
 	} else if (dynamic_cast<tracker_alert*>(poppedAlert))
 	{
 		torrent_handle handle = (dynamic_cast<tracker_alert*>(poppedAlert))->handle;
 
-		return Py_BuildValue("{s:i,s:i,s:s,s:s}", "eventType",  		EVENT_TRACKER,
-																"uniqueID",   		uniqueIDs->at(get_torrent_index(handle)),
-																"trackerStatus",	"Bad response (status code=?)",
-													 			"message",    		a->msg().c_str()                 );
+		if (handle_exists(handle))
+			return Py_BuildValue("{s:i,s:i,s:s,s:s}", "eventType",  		EVENT_TRACKER,
+																	"uniqueID",   		uniqueIDs->at(get_torrent_index(handle)),
+																	"trackerStatus",	"Bad response (status code=?)",
+														 			"message",    		a->msg().c_str()                 );
+		else
+		{ Py_INCREF(Py_None); return Py_None; }
 	} else if (dynamic_cast<tracker_reply_alert*>(poppedAlert))
 	{
 		torrent_handle handle = (dynamic_cast<tracker_reply_alert*>(poppedAlert))->handle;
 
-		return Py_BuildValue("{s:i,s:i,s:s,s:s}", "eventType",  		EVENT_TRACKER,
-																"uniqueID",   		uniqueIDs->at(get_torrent_index(handle)),
-																"trackerStatus",	"Announce succeeded",
-													 			"message",    		a->msg().c_str()                 );
+		if (handle_exists(handle))
+			return Py_BuildValue("{s:i,s:i,s:s,s:s}", "eventType",  		EVENT_TRACKER,
+																	"uniqueID",   		uniqueIDs->at(get_torrent_index(handle)),
+																	"trackerStatus",	"Announce succeeded",
+														 			"message",    		a->msg().c_str()                 );
+		else
+		{ Py_INCREF(Py_None); return Py_None; }
 	} else if (dynamic_cast<tracker_warning_alert*>(poppedAlert))
 	{
 		torrent_handle handle = (dynamic_cast<tracker_warning_alert*>(poppedAlert))->handle;
 
-		return Py_BuildValue("{s:i,s:i,s:s,s:s}", "eventType",  		EVENT_TRACKER,
-																"uniqueID",   		uniqueIDs->at(get_torrent_index(handle)),
-																"trackerStatus",	"Warning in response",
-													 			"message",    		a->msg().c_str()                 );
+		if (handle_exists(handle))
+			return Py_BuildValue("{s:i,s:i,s:s,s:s}", "eventType",  		EVENT_TRACKER,
+																	"uniqueID",   		uniqueIDs->at(get_torrent_index(handle)),
+																	"trackerStatus",	"Warning in response",
+														 			"message",    		a->msg().c_str()                 );
+		else
+		{ Py_INCREF(Py_None); return Py_None; }
 	}
 
 	return Py_BuildValue("{s:i,s:s}", "eventType", EVENT_OTHER,
