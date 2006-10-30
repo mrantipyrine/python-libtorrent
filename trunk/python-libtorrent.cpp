@@ -302,7 +302,7 @@ static PyObject *torrent_init(PyObject *self, PyObject *args)
 	filterOuts->reserve(10);
 	torrentNames->reserve(10);
 
-	settings->user_agent = std::string(userAgent) + " (libtorrent " LIBTORRENT_VERSION ")";
+	settings->user_agent = std::string(userAgent);// + " (libtorrent " LIBTORRENT_VERSION ")";
 
 //	printf("ID: %s\r\n", clientID);
 //	printf("User Agent: %s\r\n", settings->user_agent.c_str());
