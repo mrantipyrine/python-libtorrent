@@ -64,6 +64,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "libtorrent/peer_id.hpp"
 #include "libtorrent/file.hpp"
 #include "libtorrent/invariant_check.hpp"
+#include "libtorrent/aux_/session_impl.hpp"
 
 #ifndef NDEBUG
 #include <ios>
@@ -627,6 +628,7 @@ namespace libtorrent
 #endif
 
 		size_type start = slot * (size_type)m_pimpl->info.piece_length() + offset;
+		assert(start + size <= m_pimpl->info.total_size());
 
 		// find the file iterator and file offset
 		size_type file_offset = start;
@@ -683,32 +685,37 @@ namespace libtorrent
 			if (file_offset + read_bytes > file_iter->size)
 				read_bytes = static_cast<int>(file_iter->size - file_offset);
 
+			if (read_bytes > 0)
+			{
 #ifndef NDEBUG
-			assert(int(slices.size()) > counter);
-			size_type slice_size = slices[counter].size;
-			assert(slice_size == read_bytes);
-			assert(m_pimpl->info.file_at(slices[counter].file_index).path
-				== file_iter->path);
+				assert(int(slices.size()) > counter);
+				size_type slice_size = slices[counter].size;
+				assert(slice_size == read_bytes);
+				assert(m_pimpl->info.file_at(slices[counter].file_index).path
+					== file_iter->path);
 #endif
 
-			size_type actual_read = in->read(buf + buf_pos, read_bytes);
+				size_type actual_read = in->read(buf + buf_pos, read_bytes);
 
-			if (read_bytes != actual_read)
-			{
-				// the file was not big enough
-				throw file_error("slot has no storage");
+				if (read_bytes != actual_read)
+				{
+					// the file was not big enough
+					throw file_error("slot has no storage");
+				}
+
+				left_to_read -= read_bytes;
+				buf_pos += read_bytes;
+				assert(buf_pos >= 0);
+				file_offset += read_bytes;
 			}
-
-			left_to_read -= read_bytes;
-			buf_pos += read_bytes;
-			assert(buf_pos >= 0);
-			file_offset += read_bytes;
 
 			if (left_to_read > 0)
 			{
 				++file_iter;
 #ifndef NDEBUG
-				++counter;
+				// empty files are not returned by map_block, so if
+				// this file was empty, don't increment the slice counter
+				if (read_bytes > 0) ++counter;
 #endif
 				path path = m_pimpl->save_path / file_iter->path;
 
@@ -798,32 +805,35 @@ namespace libtorrent
 				write_bytes = static_cast<int>(file_iter->size - file_offset);
 			}
 
-			assert(int(slices.size()) > counter);
-			assert(slices[counter].size == write_bytes);
-			assert(m_pimpl->info.file_at(slices[counter].file_index).path
-				== file_iter->path);
-
-			assert(buf_pos >= 0);
-			assert(write_bytes >= 0);
-			size_type written = out->write(buf + buf_pos, write_bytes);
-
-			if (written != write_bytes)
+			if (write_bytes > 0)
 			{
-				std::stringstream s;
-				s << "no storage for slot " << slot;
-				throw file_error(s.str());
-			}
+				assert(int(slices.size()) > counter);
+				assert(slices[counter].size == write_bytes);
+				assert(m_pimpl->info.file_at(slices[counter].file_index).path
+					== file_iter->path);
 
-			left_to_write -= write_bytes;
-			buf_pos += write_bytes;
-			assert(buf_pos >= 0);
-			file_offset += write_bytes;
-			assert(file_offset <= file_iter->size);
+				assert(buf_pos >= 0);
+				assert(write_bytes >= 0);
+				size_type written = out->write(buf + buf_pos, write_bytes);
+
+				if (written != write_bytes)
+				{
+					std::stringstream s;
+					s << "no storage for slot " << slot;
+					throw file_error(s.str());
+				}
+
+				left_to_write -= write_bytes;
+				buf_pos += write_bytes;
+				assert(buf_pos >= 0);
+				file_offset += write_bytes;
+				assert(file_offset <= file_iter->size);
+			}
 
 			if (left_to_write > 0)
 			{
 			#ifndef NDEBUG
-				++counter;
+				if (write_bytes > 0) ++counter;
 			#endif
 				++file_iter;
 
@@ -855,7 +865,7 @@ namespace libtorrent
 			, path const& path);
 
 		bool check_fastresume(
-			detail::piece_checker_data& d
+			aux::piece_checker_data& d
 			, std::vector<bool>& pieces
 			, int& num_pieces
 			, bool compact_mode);
@@ -1353,7 +1363,7 @@ namespace libtorrent
 	// isn't return false and the full check
 	// will be run
 	bool piece_manager::impl::check_fastresume(
-		detail::piece_checker_data& data
+		aux::piece_checker_data& data
 		, std::vector<bool>& pieces
 		, int& num_pieces, bool compact_mode)
 	{
@@ -1519,10 +1529,10 @@ namespace libtorrent
 		{
 
 			m_storage.read(
-					&m_piece_data[0]
-					, m_current_slot
-					, 0
-					, int(m_info.piece_size(m_current_slot)));
+				&m_piece_data[0]
+				, m_current_slot
+				, 0
+				, int(m_info.piece_size(m_current_slot)));
 
 			if (m_hash_to_piece.empty())
 			{
@@ -1533,11 +1543,11 @@ namespace libtorrent
 			}
 
 			int piece_index = identify_data(
-					m_piece_data
-					, m_current_slot
-					, pieces
-					, num_pieces
-					, m_hash_to_piece);
+				m_piece_data
+				, m_current_slot
+				, pieces
+				, num_pieces
+				, m_hash_to_piece);
 
 			assert(num_pieces == std::count(pieces.begin(), pieces.end(), true));
 			assert(piece_index == unassigned || piece_index >= 0);
@@ -1798,7 +1808,7 @@ namespace libtorrent
 	}
 
 	bool piece_manager::check_fastresume(
-		detail::piece_checker_data& d, std::vector<bool>& pieces
+		aux::piece_checker_data& d, std::vector<bool>& pieces
 		, int& num_pieces, bool compact_mode)
 	{
 		return m_pimpl->check_fastresume(d, pieces, num_pieces, compact_mode);

@@ -61,6 +61,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "libtorrent/hasher.hpp"
 #include "libtorrent/entry.hpp"
 #include "libtorrent/session.hpp"
+#include "libtorrent/aux_/session_impl.hpp"
 #include "libtorrent/invariant_check.hpp"
 
 #if defined(_MSC_VER) && _MSC_VER < 1300
@@ -73,7 +74,7 @@ namespace std
 
 using boost::bind;
 using boost::mutex;
-using libtorrent::detail::session_impl;
+using libtorrent::aux::session_impl;
 
 namespace libtorrent
 {
@@ -86,8 +87,8 @@ namespace libtorrent
 			  
 		template<class Ret, class F>
 		Ret call_member(
-			detail::session_impl* ses
-			, detail::checker_impl* chk
+			session_impl* ses
+			, aux::checker_impl* chk
 			, sha1_hash const& hash
 			, F f)
 		{
@@ -96,7 +97,7 @@ namespace libtorrent
 			if (chk)
 			{
 				mutex::scoped_lock l(chk->m_mutex);
-				detail::piece_checker_data* d = chk->find_torrent(hash);
+				aux::piece_checker_data* d = chk->find_torrent(hash);
 				if (d != 0) return f(*d->torrent_ptr);
 			}
 
@@ -253,7 +254,7 @@ namespace libtorrent
 		{
 			mutex::scoped_lock l(m_chk->m_mutex);
 
-			detail::piece_checker_data* d = m_chk->find_torrent(m_info_hash);
+			aux::piece_checker_data* d = m_chk->find_torrent(m_info_hash);
 			if (d != 0)
 			{
 				if (!d->processing)
@@ -287,7 +288,7 @@ namespace libtorrent
 		{
 			mutex::scoped_lock l(m_chk->m_mutex);
 
-			detail::piece_checker_data* d = m_chk->find_torrent(m_info_hash);
+			aux::piece_checker_data* d = m_chk->find_torrent(m_info_hash);
 			if (d != 0)
 			{
 				torrent_status st;
@@ -315,6 +316,13 @@ namespace libtorrent
 
 		throw_invalid_handle();
 		return torrent_status();
+	}
+
+	void torrent_handle::set_sequenced_download_threshold(int threshold) const
+	{
+		INVARIANT_CHECK;
+		call_member<void>(m_ses, m_chk, m_info_hash
+			, bind(&torrent::set_sequenced_download_threshold, _1, threshold));
 	}
 
 	void torrent_handle::filter_piece(int index, bool filter) const
@@ -397,7 +405,7 @@ namespace libtorrent
 		if (m_chk)
 		{
 			mutex::scoped_lock l(m_chk->m_mutex);
-			detail::piece_checker_data* d = m_chk->find_torrent(m_info_hash);
+			aux::piece_checker_data* d = m_chk->find_torrent(m_info_hash);
 			if (d != 0) return true;
 		}
 
@@ -565,7 +573,7 @@ namespace libtorrent
 			// once the checking is complete.
 			mutex::scoped_lock l2(m_chk->m_mutex);
 
-			detail::piece_checker_data* d = m_chk->find_torrent(m_info_hash);
+			aux::piece_checker_data* d = m_chk->find_torrent(m_info_hash);
 			if (d == 0) throw_invalid_handle();
 			d->peers.push_back(adr);
 			return;

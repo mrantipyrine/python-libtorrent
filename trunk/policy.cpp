@@ -51,6 +51,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "libtorrent/socket.hpp"
 #include "libtorrent/alert_types.hpp"
 #include "libtorrent/invariant_check.hpp"
+#include "libtorrent/aux_/session_impl.hpp"
 
 namespace libtorrent
 {
@@ -93,7 +94,6 @@ namespace
 		// the last argument is if we should prefer whole pieces
 		// for this peer. If we're downloading one piece in 20 seconds
 		// then use this mode.
-		// TODO: 20 seconds has to be customizable
 		bool prefer_whole_pieces = c.statistics().download_payload_rate()
 			* t.settings().whole_pieces_threshold
 			> t.torrent_file().piece_length();
@@ -910,7 +910,33 @@ namespace libtorrent
 			, m_peers.end()
 			, match_peer_ip(c.remote()));
 
-		if (i == m_peers.end())
+
+		if (i != m_peers.end())
+		{
+			if (i->banned)
+				throw protocol_error("ip address banned, closing");
+
+			if (i->connection != 0)
+			{
+				// the new connection is a local (outgoing) connection
+				// or the current one is already connected
+				if (!i->connection->is_connecting() || c.is_local())
+				{
+					throw protocol_error("duplicate connection, closing");
+				}
+				else
+				{
+#if defined(TORRENT_VERBOSE_LOGGING) || defined(TORRENT_LOGGING)
+					m_torrent->debug_log("duplicate connection. existing connection"
+					" is connecting and this connection is incoming. closing existing "
+					"connection in favour of this one");
+#endif
+					i->connection->disconnect();
+					i->connection = 0;
+				}
+			}
+		}
+		else
 		{
 			using namespace boost::posix_time;
 			using namespace boost::gregorian;
@@ -923,13 +949,6 @@ namespace libtorrent
 			peer p(c.remote(), peer::not_connectable);
 			m_peers.push_back(p);
 			i = m_peers.end()-1;
-		}
-		else
-		{
-			if (i->connection != 0)
-				throw protocol_error("duplicate connection, closing");
-			if (i->banned)
-				throw protocol_error("ip address banned, closing");
 		}
 		
 		assert(i->connection == 0);
@@ -947,7 +966,7 @@ namespace libtorrent
 		INVARIANT_CHECK;
 
 		// just ignore the obviously invalid entries from the tracker
-		if(remote.address() == address(0) || remote.port() == 0)
+		if(remote.address() == address() || remote.port() == 0)
 			return;
 
 		try
