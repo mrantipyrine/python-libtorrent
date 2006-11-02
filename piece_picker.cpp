@@ -39,6 +39,7 @@ POSSIBILITY OF SUCH DAMAGE.
 //#include <algo.h>
 
 #include "libtorrent/piece_picker.hpp"
+#include "libtorrent/aux_/session_impl.hpp"
 
 #ifndef NDEBUG
 #include "libtorrent/peer_connection.hpp"
@@ -51,14 +52,13 @@ POSSIBILITY OF SUCH DAMAGE.
 namespace libtorrent
 {
 
-	piece_picker::piece_picker(int blocks_per_piece, int total_num_blocks
-		, int sequenced_download_threshold)
+	piece_picker::piece_picker(int blocks_per_piece, int total_num_blocks)
 		: m_piece_info(2)
 		, m_downloading_piece_info(2)
 		, m_piece_map((total_num_blocks + blocks_per_piece-1) / blocks_per_piece)
 		, m_num_filtered(0)
 		, m_num_have_filtered(0)
-		, m_sequenced_download_threshold(sequenced_download_threshold)
+		, m_sequenced_download_threshold(100)
 	{
 		assert(blocks_per_piece > 0);
 		assert(total_num_blocks >= 0);
@@ -157,8 +157,44 @@ namespace libtorrent
 			if (i->priority(old_limit) != i->priority(m_sequenced_download_threshold))
 			{
 				piece_pos& p = *i;
-				int prev_priority = i->priority(old_limit);
-				move(p.downloading, p.filtered, prev_priority, i->index);
+				if (p.index == piece_pos::we_have_index) continue;
+				int prev_priority = p.priority(old_limit);
+				move(p.downloading, p.filtered, prev_priority, p.index);
+			}
+		}
+		
+		typedef std::vector<int> info_t;
+
+		if (old_limit < sequenced_download_threshold)
+		{
+			// the threshold was incremented, in case
+			// the previous max availability was reached
+			// we need to shuffle that bucket, if not, we
+			// don't have to do anything
+			if (int(m_piece_info.size()) > old_limit)
+			{
+				info_t& in = m_piece_info[old_limit];
+				std::random_shuffle(in.begin(), in.end());
+				int c = 0;
+				for (info_t::iterator i = in.begin()
+					, end(in.end()); i != end; ++i)
+				{
+					m_piece_map[*i].index = c++;
+					assert(m_piece_map[*i].priority(old_limit) == old_limit);
+				}
+			}
+		}
+		else if (int(m_piece_info.size()) > sequenced_download_threshold)
+		{
+			info_t& in = m_piece_info[sequenced_download_threshold];
+			std::sort(in.begin(), in.end());
+			int c = 0;
+			for (info_t::iterator i = in.begin()
+				, end(in.end()); i != end; ++i)
+			{
+				m_piece_map[*i].index = c++;
+				assert(m_piece_map[*i].priority(
+					sequenced_download_threshold) == sequenced_download_threshold);
 			}
 		}
 	}
@@ -378,6 +414,7 @@ namespace libtorrent
 		assert(!filtered);
 		assert(priority >= 0);
 		assert(elem_index >= 0);
+		assert(elem_index != piece_pos::we_have_index);
 		std::vector<std::vector<int> >& src_vec(pick_piece_info_vector(
 			downloading, filtered));
 
@@ -473,7 +510,9 @@ namespace libtorrent
 				m_piece_map[replace_index].index = elem_index;
 
 				assert((int)src_vec[priority].size() > elem_index);
-				assert((int)m_piece_map[replace_index].priority(m_sequenced_download_threshold) == priority);
+				// this may not necessarily be the case. If we've just updated the threshold and are updating
+				// the piece map
+//				assert((int)m_piece_map[replace_index].priority(m_sequenced_download_threshold) == priority);
 				assert((int)m_piece_map[replace_index].index == elem_index);
 				assert(src_vec[priority][elem_index] == replace_index);
 			}

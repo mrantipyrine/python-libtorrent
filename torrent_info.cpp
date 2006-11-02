@@ -62,6 +62,98 @@ using namespace boost::filesystem;
 
 namespace
 {
+	void convert_to_utf8(std::string& str, unsigned char chr)
+	{
+		str += 0xc0 | ((chr & 0xff) >> 6);
+		str += 0x80 | (chr & 0x3f);
+	}
+
+	void verify_encoding(file_entry& target)
+	{
+		std::string tmp_path;
+		std::string file_path = target.path.string();
+		bool valid_encoding = true;
+		for (std::string::iterator i = file_path.begin()
+			, end(file_path.end()); i != end; ++i)
+		{
+			// valid ascii-character
+			if ((*i & 0x80) == 0)
+			{
+				tmp_path += *i;
+				continue;
+			}
+			
+			if (std::distance(i, end) < 2)
+			{
+				convert_to_utf8(tmp_path, *i);
+				valid_encoding = false;
+				continue;
+			}
+			
+			// valid 2-byte utf-8 character
+			if ((i[0] & 0xe0) == 0xc0
+				&& (i[1] & 0xc0) == 0x80)
+			{
+				tmp_path += i[0];
+				tmp_path += i[1];
+				i += 1;
+				continue;
+			}
+
+			if (std::distance(i, end) < 3)
+			{
+				convert_to_utf8(tmp_path, *i);
+				valid_encoding = false;
+				continue;
+			}
+
+			// valid 3-byte utf-8 character
+			if ((i[0] & 0xf0) == 0xe0
+				&& (i[1] & 0xc0) == 0x80
+				&& (i[2] & 0xc0) == 0x80)
+			{
+				tmp_path += i[0];
+				tmp_path += i[1];
+				tmp_path += i[2];
+				i += 2;
+				continue;
+			}
+
+			if (std::distance(i, end) < 4)
+			{
+				convert_to_utf8(tmp_path, *i);
+				valid_encoding = false;
+				continue;
+			}
+
+			// valid 4-byte utf-8 character
+			if ((i[0] & 0xf0) == 0xe0
+				&& (i[1] & 0xc0) == 0x80
+				&& (i[2] & 0xc0) == 0x80
+				&& (i[3] & 0xc0) == 0x80)
+			{
+				tmp_path += i[0];
+				tmp_path += i[1];
+				tmp_path += i[2];
+				tmp_path += i[3];
+				i += 3;
+				continue;
+			}
+
+			convert_to_utf8(tmp_path, *i);
+			valid_encoding = false;
+		}
+		// the encoding was not valid utf-8
+		// save the original encoding and replace the
+		// commonly used path with the correctly
+		// encoded string
+		if (!valid_encoding)
+		{
+			target.orig_path.reset(new path(target.path));
+			target.path = tmp_path;
+		}
+	}
+
 	void extract_single_file(const entry& dict, file_entry& target
 		, std::string const& root_dir)
 	{
@@ -89,6 +181,7 @@ namespace
 			if (i->string() != "..")
 				target.path /= i->string();
 		}
+		verify_encoding(target);
 		if (target.path.is_complete()) throw std::runtime_error("torrent contains "
 			"a file with an absolute path: '"
 			+ target.path.native_file_string() + "'");
@@ -127,6 +220,7 @@ namespace libtorrent
 	torrent_info::torrent_info(const entry& torrent_file)
 		: m_creation_date(date(not_a_date_time))
 		, m_multifile(false)
+		, m_private(false)
 		, m_extra_info(entry::dictionary_t)
 	{
 		try
@@ -206,6 +300,7 @@ namespace libtorrent
 
 		// extract piece length
 		m_piece_length = (int)info["piece length"].integer();
+		if (m_piece_length <= 0) throw std::runtime_error("invalid torrent. piece length <= 0");
 
 		// extract file name (or the directory name if it's a multifile libtorrent)
 		if (entry const* e = info.find_key("name.utf-8"))
@@ -269,6 +364,17 @@ namespace libtorrent
 			m_extra_info[i->first] = i->second;
 		}
 
+		if (entry const* priv = info.find_key("private"))
+		{
+			if (priv->type() != entry::int_t
+				|| priv->integer() != 0)
+			{
+				// this key exists and it's not 0.
+				// consider the torrent private
+				m_private = true;
+			}
+		}
+
 #ifndef NDEBUG
 		std::vector<char> info_section_buf;
 		entry gen_info_section = create_info_metadata();
@@ -319,10 +425,27 @@ namespace libtorrent
 			}
 			std::random_shuffle(start, stop);
 		}
-		else
+		else if (entry const* i = torrent_file.find_key("announce"))
 		{
-			m_urls.push_back(announce_entry(
-				torrent_file["announce"].string()));
+			m_urls.push_back(announce_entry(i->string()));
+		}
+
+		if (entry const* i = torrent_file.find_key("nodes"))
+		{
+			entry::list_type const& list = i->list();
+			for (entry::list_type::const_iterator i(list.begin())
+				, end(list.end()); i != end; ++i)
+			{
+				if (i->type() != entry::list_t) continue;
+				entry::list_type const& l = i->list();
+				entry::list_type::const_iterator iter = l.begin();
+				if (l.size() < 1) continue;
+				std::string const& hostname = iter->string();
+				++iter;
+				int port = 6881;
+				if (l.end() != iter) port = iter->integer();
+				m_nodes.push_back(std::make_pair(hostname, port));
+			}
 		}
 
 		// extract creation date
@@ -471,7 +594,7 @@ namespace libtorrent
 				files = entry(entry::list_t);
 
 				for (std::vector<file_entry>::const_iterator i = m_files.begin();
-						i != m_files.end(); ++i)
+					i != m_files.end(); ++i)
 				{
 					files.list().push_back(entry(entry::dictionary_t));
 					entry& file_e = files.list().back();
@@ -479,12 +602,14 @@ namespace libtorrent
 					entry& path_e = file_e["path"];
 					path_e = entry(entry::list_t);
 
-					fs::path const& file_path(i->path);
-					assert(file_path.has_branch_path());
-					assert(*file_path.begin() == m_name);
+					fs::path const* file_path;
+					if (i->orig_path) file_path = &(*i->orig_path);
+					else file_path = &i->path;
+					assert(file_path->has_branch_path());
+					assert(*file_path->begin() == m_name);
 
-					for (fs::path::iterator j = boost::next(file_path.begin());
-							j != file_path.end(); ++j)
+					for (fs::path::iterator j = boost::next(file_path->begin());
+						j != file_path->end(); ++j)
 					{
 						path_e.list().push_back(entry(*j));
 					}
@@ -518,14 +643,32 @@ namespace libtorrent
 
 		entry dict(entry::dictionary_t);
 
-		if (m_urls.empty() || m_files.empty())
+		if ((m_urls.empty() && m_nodes.empty()) || m_files.empty())
 		{
 			// TODO: throw something here
 			// throw
 			return entry();
 		}
 
-		dict["announce"] = m_urls.front().url;
+		if (m_private) dict["private"] = 1;
+
+		if (!m_urls.empty())
+			dict["announce"] = m_urls.front().url;
+		
+		if (!m_nodes.empty())
+		{
+			entry& nodes = dict["nodes"];
+			nodes = entry(entry::list_t);
+			entry::list_type& nodes_list = nodes.list();
+			for (nodes_t::const_iterator i = m_nodes.begin()
+				, end(m_nodes.end()); i != end; ++i)
+			{
+				entry::list_type node;
+				node.push_back(entry(i->first));
+				node.push_back(entry(i->second));
+				nodes_list.push_back(entry(node));
+			}
+		}
 
 		if (m_urls.size() > 1)
 		{
@@ -600,8 +743,7 @@ namespace libtorrent
 	{
 		os << "trackers:\n";
 		for (std::vector<announce_entry>::const_iterator i = trackers().begin();
-			i != trackers().end();
-			++i)
+			i != trackers().end(); ++i)
 		{
 			os << i->tier << ": " << i->url << "\n";
 		}
@@ -609,6 +751,7 @@ namespace libtorrent
 			os << "comment: " << m_comment << "\n";
 		if (m_creation_date != ptime(date(not_a_date_time)))
 			os << "creation date: " << to_simple_string(m_creation_date) << "\n";
+		os << "private: " << (m_private?"yes":"no") << "\n";
 		os << "number of pieces: " << num_pieces() << "\n";
 		os << "piece length: " << piece_length() << "\n";
 		os << "files:\n";
@@ -630,7 +773,12 @@ namespace libtorrent
 		else
 			return piece_length();
 	}
-	
+
+	void torrent_info::add_node(std::pair<std::string, int> const& node)
+	{
+		m_nodes.push_back(node);
+	}
+
 	std::vector<file_slice> torrent_info::map_block(int piece, size_type offset
 		, int size) const
 	{
@@ -638,6 +786,7 @@ namespace libtorrent
 		std::vector<file_slice> ret;
 
 		size_type start = piece * (size_type)m_piece_length + offset;
+		assert(start + size <= m_total_size);
 
 		// find the file iterator and file offset
 		// TODO: make a vector that can map piece -> file index in O(1)
