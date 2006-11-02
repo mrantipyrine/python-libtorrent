@@ -81,6 +81,7 @@ using boost::filesystem::path;
 #define STATE_SEEDING          6
 #define STATE_ALLOCATING       7
 
+#define DHT_ROUTER_PORT 6881
 
 typedef std::vector<torrent_handle> handles_t;
 typedef std::vector<long> 				uniqueIDs_t;
@@ -312,7 +313,7 @@ static PyObject *torrent_init(PyObject *self, PyObject *args)
 	ses->set_max_half_open_connections(-1);
 	ses->set_download_rate_limit(-1);
 	ses->set_upload_rate_limit(-1);
-	ses->listen_on(std::make_pair(19335, 19335 + 10), ""); // 6881, usually
+	ses->listen_on(std::make_pair(6881, 6889), ""); // 6881, usually
 	ses->set_settings(*settings);
 	ses->set_severity_level(alert::debug);
 //			ses.set_severity_level(alert::warning);
@@ -846,36 +847,81 @@ static PyObject *torrent_constants(PyObject *self, PyObject *args)
 	Py_INCREF(constants); return constants;
 }
 
+static PyObject *torrent_startDHT(PyObject *self, PyObject *args)
+{
+	const char *DHTpath;
+	PyArg_ParseTuple(args, "s", &DHTpath);
+
+	printf("Loading DHT state from %s\r\n", DHTpath);
+
+//	boost::filesystem::ifstream dht_state_file(DHTpath, std::ios_base::binary);
+//	dht_state_file.unsetf(std::ios_base::skipws);
+//	entry dht_state;
+//	try{
+//		dht_state = bdecode(std::istream_iterator<char>(dht_state_file),
+//								  std::istream_iterator<char>());
+//	} catch (std::exception&) {
+//		printf("No DHT file to resume\r\n");
+//	}
+
+//	ses->start_dht(dht_state);
+//	ses->add_dht_router(std::make_pair(std::string("router.bittorrent.com"), DHT_ROUTER_PORT));
+//	ses->add_dht_router(std::make_pair(std::string("router.utorrent.com"), DHT_ROUTER_PORT));
+//	ses->add_dht_router(std::make_pair(std::string("router.bitcomet.com"), DHT_ROUTER_PORT));
+	Py_INCREF(Py_None); return Py_None;
+}
+
+static PyObject *torrent_stopDHT(PyObject *self, PyObject *args)
+{
+	const char *DHTpath;
+	PyArg_ParseTuple(args, "s", &DHTpath);
+
+	printf("Saving DHT state to %s\r\n", DHTpath);
+
+//	try {
+//		entry dht_state = ses->dht_state();
+//		boost::filesystem::ofstream out(DHTpath, std::ios_base::binary);
+//		out.unsetf(std::ios_base::skipws);
+//		bencode(std::ostream_iterator<char>(out), dht_state);
+//	} catch (std::exception& e) {
+//		printf("An error occured in saving DHT\r\n");
+//      std::cerr << e.what() << "\n";
+//	}
+	Py_INCREF(Py_None); return Py_None;
+}
+
 
 //====================
 // Python Module data
 //====================
 
 static PyMethodDef TorrentMethods[] = {
-	{"init",                      torrent_init,   METH_VARARGS, "Initialize the torrenting engine."},
-	{"quit",                      torrent_quit,   METH_VARARGS, "Shutdown the torrenting engine."},
-	{"setMaxHalfOpenConnections", torrent_setMaxHalfOpenConnections, METH_VARARGS, "Shutdown the torrenting engine."},
-	{"setDownloadRateLimit",      torrent_setDownloadRateLimit, METH_VARARGS, "Set the download speed limit."},
-	{"setUploadRateLimit",        torrent_setUploadRateLimit,   METH_VARARGS, "Set the upload speed limit."},
-	{"setListenOn",               torrent_setListenOn,          METH_VARARGS, "Set the port to listen on."},
-	{"isListening",				   torrent_isListening,				METH_VARARGS, "Are we listening ok?"},
-	{"listeningPort",				   torrent_listeningPort,			METH_VARARGS, "Port we ended up on."},
-	{"setMaxUploads",             torrent_setMaxUploads,        METH_VARARGS, "Set the max uploads to do."},
-	{"setMaxConnections",         torrent_setMaxConnections,    METH_VARARGS, "Set max connections."},
-	{"addTorrent",                torrent_addTorrent,           METH_VARARGS, "Add a torrent."},
-	{"removeTorrent",             torrent_removeTorrent,        METH_VARARGS, "Remove a torrent."},
-	{"getNumTorrents",            torrent_getNumTorrents,       METH_VARARGS, "Get number of torrents."},
-	{"reannounce",                torrent_reannounce,           METH_VARARGS, "Reannounce a torrent."},
-	{"pause",                     torrent_pause,                METH_VARARGS, "Pause a torrent."},
-	{"resume",                    torrent_resume,               METH_VARARGS, "Resume a torrent."},
-	{"getName",                   torrent_getName,              METH_VARARGS, "Gets the name of a torrent."},
-	{"getState",                  torrent_getState,             METH_VARARGS, "Get torrent state."},
-	{"popEvent",                  torrent_popEvent,             METH_VARARGS, "Pops an event."},
-	{"getSessionInfo",  				torrent_getSessionInfo, 		METH_VARARGS, "All session info"},
-	{"getPeerInfo",					torrent_getPeerInfo, 			METH_VARARGS, "Get all peer info."},
-	{"getFileInfo",					torrent_getFileInfo, 			METH_VARARGS, "Get all file info."},
-	{"setFilterOut",					torrent_setFilterOut, 			METH_VARARGS, "."},
-	{"constants",						torrent_constants, 				METH_VARARGS, "Get the constants."},
+	{"init",                      torrent_init,   METH_VARARGS, "."},
+	{"quit",                      torrent_quit,   METH_VARARGS, "."},
+	{"setMaxHalfOpenConnections", torrent_setMaxHalfOpenConnections, METH_VARARGS, "."},
+	{"setDownloadRateLimit",      torrent_setDownloadRateLimit, METH_VARARGS,		 "."},
+	{"setUploadRateLimit",        torrent_setUploadRateLimit,   METH_VARARGS,		 "."},
+	{"setListenOn",               torrent_setListenOn,          METH_VARARGS,		 "."},
+	{"isListening",				   torrent_isListening,				METH_VARARGS,		 "."},
+	{"listeningPort",				   torrent_listeningPort,			METH_VARARGS,		 "."},
+	{"setMaxUploads",             torrent_setMaxUploads,        METH_VARARGS,		 "."},
+	{"setMaxConnections",         torrent_setMaxConnections,    METH_VARARGS,		 "."},
+	{"addTorrent",                torrent_addTorrent,           METH_VARARGS,		 "."},
+	{"removeTorrent",             torrent_removeTorrent,        METH_VARARGS,		 "."},
+	{"getNumTorrents",            torrent_getNumTorrents,       METH_VARARGS,		 "."},
+	{"reannounce",                torrent_reannounce,           METH_VARARGS, 		 "."},
+	{"pause",                     torrent_pause,                METH_VARARGS, 		 "."},
+	{"resume",                    torrent_resume,               METH_VARARGS,		 "."},
+	{"getName",                   torrent_getName,              METH_VARARGS,		 "."},
+	{"getState",                  torrent_getState,             METH_VARARGS, 		 "."},
+	{"popEvent",                  torrent_popEvent,             METH_VARARGS, 		 "."},
+	{"getSessionInfo",  				torrent_getSessionInfo, 		METH_VARARGS,		 "."},
+	{"getPeerInfo",					torrent_getPeerInfo, 			METH_VARARGS, 		 "."},
+	{"getFileInfo",					torrent_getFileInfo, 			METH_VARARGS, 		 "."},
+	{"setFilterOut",					torrent_setFilterOut, 			METH_VARARGS, 		 "."},
+	{"constants",						torrent_constants, 				METH_VARARGS,		 "."},
+	{"startDHT",						torrent_startDHT, 				METH_VARARGS,		 "."},
+	{"stopDHT",							torrent_stopDHT, 					METH_VARARGS,		 "."},
 	{NULL}        /* Sentinel */
 };
 
