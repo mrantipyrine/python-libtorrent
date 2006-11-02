@@ -1,0 +1,13 @@
+================================= 
+Installation of python-libtorrent
+=================================
+
+Compile:         python setup.py build
+Compile&install: sudo python setup.py install
+
+Dependencies to compile (written as Ubuntu packages): python, libboost-filesystem1.33.1, libboost-date-time1.33.1, libboost-program-options1.33.1, libboost-regex1.33.1, libboost-thread1.33.1, libc6-dev, zlib1g-dev
+
+May also depend on (not sure): python-dev
+
+Note: If you find mistakes here, please notify me on the project page,
+http://code.google.com/p/python-libtorrent
