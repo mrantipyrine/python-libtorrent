@@ -30,11 +30,13 @@
 #include "libtorrent/identify_client.hpp"
 #include "libtorrent/alert_types.hpp"
 
-//#include <iostream>
 //#include <fstream>
 
 //Needed just for debug purposes
 #include <stdio.h>
+
+// Debug only
+#include <iostream.h> 
 
 using namespace libtorrent;
 using boost::filesystem::path;
@@ -469,7 +471,7 @@ static PyObject *torrent_addTorrent(PyObject *self, PyObject *args)
 	const char *name, *saveDir;
 	PyArg_ParseTuple(args, "ss", &name, &saveDir);
 
-	path saveDir_2	(saveDir);// 	empty_name_check);
+	path saveDir_2	(saveDir, empty_name_check);
 
 	return Py_BuildValue("i", internal_add_torrent(name, 0, true, saveDir_2));
 }
@@ -854,20 +856,23 @@ static PyObject *torrent_startDHT(PyObject *self, PyObject *args)
 
 	printf("Loading DHT state from %s\r\n", DHTpath);
 
-//	boost::filesystem::ifstream dht_state_file(DHTpath, std::ios_base::binary);
-//	dht_state_file.unsetf(std::ios_base::skipws);
-//	entry dht_state;
-//	try{
-//		dht_state = bdecode(std::istream_iterator<char>(dht_state_file),
-//								  std::istream_iterator<char>());
-//	} catch (std::exception&) {
-//		printf("No DHT file to resume\r\n");
-//	}
+	path tempPath(DHTpath, empty_name_check);
+	boost::filesystem::ifstream dht_state_file(tempPath, std::ios_base::binary);
+	dht_state_file.unsetf(std::ios_base::skipws);
+	entry dht_state;
+	try{
+		dht_state = bdecode(std::istream_iterator<char>(dht_state_file),
+								  std::istream_iterator<char>());
+		ses->start_dht(dht_state);
+	} catch (std::exception&) {
+		printf("No DHT file to resume\r\n");
+		ses->start_dht();
+	}
 
-//	ses->start_dht(dht_state);
-//	ses->add_dht_router(std::make_pair(std::string("router.bittorrent.com"), DHT_ROUTER_PORT));
-//	ses->add_dht_router(std::make_pair(std::string("router.utorrent.com"), DHT_ROUTER_PORT));
-//	ses->add_dht_router(std::make_pair(std::string("router.bitcomet.com"), DHT_ROUTER_PORT));
+	ses->add_dht_router(std::make_pair(std::string("router.bittorrent.com"), DHT_ROUTER_PORT));
+	ses->add_dht_router(std::make_pair(std::string("router.utorrent.com"), DHT_ROUTER_PORT));
+	ses->add_dht_router(std::make_pair(std::string("router.bitcomet.com"), DHT_ROUTER_PORT));
+
 	Py_INCREF(Py_None); return Py_None;
 }
 
@@ -878,16 +883,42 @@ static PyObject *torrent_stopDHT(PyObject *self, PyObject *args)
 
 	printf("Saving DHT state to %s\r\n", DHTpath);
 
-//	try {
-//		entry dht_state = ses->dht_state();
-//		boost::filesystem::ofstream out(DHTpath, std::ios_base::binary);
-//		out.unsetf(std::ios_base::skipws);
-//		bencode(std::ostream_iterator<char>(out), dht_state);
-//	} catch (std::exception& e) {
-//		printf("An error occured in saving DHT\r\n");
-//      std::cerr << e.what() << "\n";
-//	}
+	path tempPath = path(DHTpath, empty_name_check);
+
+	try {
+		entry dht_state = ses->dht_state();
+		boost::filesystem::ofstream out(tempPath, std::ios_base::binary);
+		out.unsetf(std::ios_base::skipws);
+		bencode(std::ostream_iterator<char>(out), dht_state);
+	} catch (std::exception& e) {
+		printf("An error occured in saving DHT\r\n");
+      std::cerr << e.what() << "\n";
+	}
+
 	Py_INCREF(Py_None); return Py_None;
+}
+
+static PyObject *torrent_getDHTinfo(PyObject *self, PyObject *args)
+{
+//	printf("Pouring out DHT state:\r\n");
+	entry DHTstate = ses->dht_state();
+//	DHTstate.print(cout);
+
+	entry::list_type &peers = DHTstate.find_key("nodes")->list();
+	entry::list_type::const_iterator i;
+
+	pythonLong numPeers = 0;
+
+	i = peers.begin();
+	while (i != peers.end())
+	{
+//		printf("A:%s\r\n", i->string().c_str());
+		numPeers++;
+		i++;
+	}
+//	printf("All done.\r\n");
+	return Py_BuildValue("l", numPeers);
+//	Py_INCREF(Py_None); return Py_None;
 }
 
 
@@ -922,6 +953,7 @@ static PyMethodDef TorrentMethods[] = {
 	{"constants",						torrent_constants, 				METH_VARARGS,		 "."},
 	{"startDHT",						torrent_startDHT, 				METH_VARARGS,		 "."},
 	{"stopDHT",							torrent_stopDHT, 					METH_VARARGS,		 "."},
+	{"getDHTinfo",						torrent_getDHTinfo, 				METH_VARARGS,		 "."},
 	{NULL}        /* Sentinel */
 };
 
