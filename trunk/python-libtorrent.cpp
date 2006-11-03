@@ -547,7 +547,7 @@ static PyObject *torrent_getState(PyObject *self, PyObject *args)
 		else
 			total_peers++;
 
-	return Py_BuildValue("{s:l,s:l,s:l,s:f,s:f,s:d,s:f,s:l,s:f,s:l,s:s,s:s,s:f,s:d,s:l,s:l,s:l,s:d,s:l,s:l,s:l,s:l,s:l,s:l,s:d,s:d}",
+	return Py_BuildValue("{s:l,s:l,s:l,s:f,s:f,s:d,s:f,s:l,s:f,s:l,s:s,s:s,s:f,s:d,s:l,s:l,s:l,s:d,s:l,s:l,s:l,s:l,s:l,s:l,s:d,s:d,s:l,s:l}",
 								"state",					s.state,
 								"numPeers", 			s.num_peers,
 								"numSeeds", 			s.num_seeds,
@@ -573,7 +573,9 @@ static PyObject *torrent_getState(PyObject *self, PyObject *args)
 								"isPaused",				long(handles->at(index).is_paused()),
 								"isSeed",				long(handles->at(index).is_seed()),
 								"totalWanted",			double(s.total_wanted),
-								"totalWantedDone",	double(s.total_wanted_done));
+								"totalWantedDone",	double(s.total_wanted_done),
+								"numComplete",			long(s.num_complete),
+								"numIncomplete",		long(s.num_incomplete));
 };
 
 static PyObject *torrent_popEvent(PyObject *self, PyObject *args)
