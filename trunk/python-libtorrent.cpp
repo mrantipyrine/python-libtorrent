@@ -182,7 +182,7 @@ long internal_add_torrent(std::string const& torrent
 
 	handles->push_back(h);
 
-	h.set_max_connections(60);
+//	h.set_max_connections(60); // Setting it only works once...
 	h.set_max_uploads(-1);
 	h.set_ratio(preferred_ratio);
 
@@ -453,6 +453,7 @@ static PyObject *torrent_setMaxConnections(PyObject *self, PyObject *args)
 	pythonLong max_conn;
 	PyArg_ParseTuple(args, "i", &max_conn);
 
+//	printf("Setting max connections: %d\r\n", max_conn);
 	ses->set_max_connections(max_conn);
 
 	Py_INCREF(Py_None); return Py_None;
