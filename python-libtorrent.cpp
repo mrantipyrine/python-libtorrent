@@ -35,23 +35,11 @@
 //Needed just for debug purposes
 #include <stdio.h>
 
-// Debug only
-#include <iostream.h> 
+//// Debug only
+//#include <iostream.h> 
 
 using namespace libtorrent;
 using boost::filesystem::path;
-
-//----------------
-// x86_64?
-//----------------
-
-//#define AMD64
-
-//----------------
-// DEBUG!
-//----------------
-
-#undef NDEBUG
 
 //-----------------
 // START
@@ -283,6 +271,10 @@ long get_peer_index(libtorrent::tcp::endpoint addr, std::vector<peer_info> const
 
 static PyObject *torrent_init(PyObject *self, PyObject *args)
 {
+	printf("python-libtorrent, using libtorrent %s. Compiled with NDEBUG value: %d\r\n",
+			 LIBTORRENT_VERSION,
+			 NDEBUG);
+
 	// Tell Boost that we are on *NIX, so bloody '.'s are ok inside a directory name!
 	path::default_name_check(empty_name_check);
 
@@ -904,7 +896,11 @@ static PyObject *torrent_getDHTinfo(PyObject *self, PyObject *args)
 	entry DHTstate = ses->dht_state();
 //	DHTstate.print(cout);
 
-	entry::list_type &peers = DHTstate.find_key("nodes")->list();
+	entry *nodes = DHTstate.find_key("nodes");
+	if (!nodes)
+		return Py_BuildValue("l", -1); // No nodes - we are just starting up...
+
+	entry::list_type &peers = nodes->list();
 	entry::list_type::const_iterator i;
 
 	pythonLong numPeers = 0;
