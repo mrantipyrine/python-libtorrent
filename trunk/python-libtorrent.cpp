@@ -73,6 +73,9 @@ using boost::filesystem::path;
 
 #define DHT_ROUTER_PORT 6881
 
+#define ERROR_INVALID_ENCODING -10
+#define ERROR_FILESYSTEM       -20
+
 typedef std::vector<torrent_handle> handles_t;
 typedef std::vector<long> 				uniqueIDs_t;
 typedef handles_t::iterator 			handles_t_iterator;
@@ -333,7 +336,7 @@ static PyObject *torrent_init(PyObject *self, PyObject *args)
 	} else
 		printf("No DHT file found.\r\n");
 */
-	constants = Py_BuildValue("{s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i}",
+	constants = Py_BuildValue("{s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i}",
 										"EVENT_NULL",					EVENT_NULL,
 										"EVENT_FINISHED",				EVENT_FINISHED,
 										"EVENT_PEER_ERROR",			EVENT_PEER_ERROR,
@@ -351,7 +354,9 @@ static PyObject *torrent_init(PyObject *self, PyObject *args)
 										"STATE_DOWNLOADING",			STATE_DOWNLOADING,
 										"STATE_FINISHED",				STATE_FINISHED,
 										"STATE_SEEDING",				STATE_SEEDING,
-										"STATE_ALLOCATING",			STATE_ALLOCATING);
+										"STATE_ALLOCATING",			STATE_ALLOCATING,
+										"ERROR_INVALID_ENCODING",	ERROR_INVALID_ENCODING,
+										"ERROR_FILESYSTEM",			ERROR_FILESYSTEM);
 
 	Py_INCREF(Py_None); return Py_None;
 };
@@ -466,7 +471,18 @@ static PyObject *torrent_addTorrent(PyObject *self, PyObject *args)
 
 	path saveDir_2	(saveDir, empty_name_check);
 
-	return Py_BuildValue("i", internal_add_torrent(name, 0, true, saveDir_2));
+	try
+	{
+		return Py_BuildValue("i", internal_add_torrent(name, 0, true, saveDir_2));
+	}
+	catch (invalid_encoding&)
+	{
+		return Py_BuildValue("i", ERROR_INVALID_ENCODING);
+	}
+	catch (boost::filesystem::filesystem_error&)
+	{
+		return Py_BuildValue("i", ERROR_FILESYSTEM);
+	}
 }
 
 static PyObject *torrent_removeTorrent(PyObject *self, PyObject *args)
