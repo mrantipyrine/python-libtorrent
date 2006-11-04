@@ -310,7 +310,7 @@ static PyObject *torrent_init(PyObject *self, PyObject *args)
 	ses->set_max_half_open_connections(-1);
 	ses->set_download_rate_limit(-1);
 	ses->set_upload_rate_limit(-1);
-	ses->listen_on(std::make_pair(6881, 6889), ""); // 6881, usually
+//	ses->listen_on(std::make_pair(6881, 6889), ""); // 6881, usually
 	ses->set_settings(*settings);
 	ses->set_severity_level(alert::debug);
 //			ses.set_severity_level(alert::warning);
