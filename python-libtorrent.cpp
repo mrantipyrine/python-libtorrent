@@ -16,7 +16,7 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
  *  Thank You: Some code portions were derived from BSD-licensed work by
- *             Arvid Norberg.
+ *             Arvid Norberg, and GPL-licensed work by Christophe Dumez
  */
 
 
@@ -29,6 +29,12 @@
 #include "libtorrent/session.hpp"
 #include "libtorrent/identify_client.hpp"
 #include "libtorrent/alert_types.hpp"
+#include "libtorrent/storage.hpp"
+#include "libtorrent/hasher.hpp"
+
+
+#include <boost/filesystem/operations.hpp>
+
 
 //#include <fstream>
 
@@ -265,6 +271,18 @@ long get_peer_index(libtorrent::tcp::endpoint addr, std::vector<peer_info> const
 			index = i;
 
 	return index;
+}
+
+// The following function contains code by Christophe Dumez and Arvid Norberg
+void internal_add_files(torrent_info& t, path const& p, path const& l)
+{
+	path f(p / l); // change default checker, perhaps?
+	if (is_directory(f))
+	{
+		for (boost::filesystem::directory_iterator i(f), end; i != end; ++i)
+			internal_add_files(t, p, l / i->leaf());
+	} else
+		t.add_file(l, file_size(f));
 }
 
 
@@ -936,6 +954,61 @@ static PyObject *torrent_getDHTinfo(PyObject *self, PyObject *args)
 //	Py_INCREF(Py_None); return Py_None;
 }
 
+// The following function contains code by Christophe Dumez and Arvid Norberg
+static PyObject *torrent_createTorrent(PyObject *self, PyObject *args)
+{
+	char *destination, *comment, *creator_str, *input, *trackers;
+	pythonLong piece_size;
+	PyArg_ParseTuple(args, "ssssis", &destination, &input, &trackers, &comment, &piece_size, 													&creator_str);
+
+	piece_size = piece_size * 1024;
+
+	try
+	{
+		torrent_info t;
+		path full_path = complete(path(input));
+		boost::filesystem::ofstream out(complete(path(destination)), std::ios_base::binary);
+
+		internal_add_files(t, full_path.branch_path(), full_path.leaf());
+		t.set_piece_size(piece_size);
+
+		storage st(t, full_path.branch_path());
+
+		std::string stdTrackers(trackers);
+		unsigned long index = 0, next = stdTrackers.find("\n");
+		while (1 == 1)
+		{
+			t.add_tracker(stdTrackers.substr(index, next-index));
+			index = next + 1;
+			if (next >= stdTrackers.length())
+				break;
+			next = stdTrackers.find("\n", index);
+			if (next == std::string::npos)
+				break;
+		}
+
+		int num = t.num_pieces();
+		std::vector<char> buf(piece_size);
+		for (int i = 0; i < num; ++i)
+		{
+			st.read(&buf[0], i, 0, t.piece_size(i));
+			hasher h(&buf[0], t.piece_size(i));
+			t.set_hash(i, h.final());
+		}
+
+		t.set_creator(creator_str);
+		t.set_comment(comment);
+
+		entry e = t.create_torrent();
+		libtorrent::bencode(std::ostream_iterator<char>(out), e);
+		return Py_BuildValue("l", 1);
+	} catch (std::exception& e)
+	{
+		std::cerr << e.what() << "\n";
+		return Py_BuildValue("l", 0);
+	}
+}
+
 
 //====================
 // Python Module data
@@ -969,6 +1042,7 @@ static PyMethodDef TorrentMethods[] = {
 	{"startDHT",						torrent_startDHT, 				METH_VARARGS,		 "."},
 	{"stopDHT",							torrent_stopDHT, 					METH_VARARGS,		 "."},
 	{"getDHTinfo",						torrent_getDHTinfo, 				METH_VARARGS,		 "."},
+	{"createTorrent",					torrent_createTorrent, 			METH_VARARGS,		 "."},
 	{NULL}        /* Sentinel */
 };
 
