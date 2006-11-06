@@ -954,6 +954,11 @@ static PyObject *torrent_getDHTinfo(PyObject *self, PyObject *args)
 //	Py_INCREF(Py_None); return Py_None;
 }
 
+// Create Torrents: call with something like:
+// createTorrent("mytorrent.torrent", "directory to make a torrent out of",
+//               "tracker1\ntracker2\ntracker3", "no comment", 256, "Deluge");
+// That makes a torrent with pieces of 256K, with "Deluge" as the creator string.
+//
 // The following function contains code by Christophe Dumez and Arvid Norberg
 static PyObject *torrent_createTorrent(PyObject *self, PyObject *args)
 {
