@@ -8,10 +8,19 @@
 #http://www.fsf.org/licensing/licenses/gpl.html
 #*/
 
+import platform
+
+pythonVersion = platform.python_version()[0:3]
+
+print "========================================="
+print "Creating python-libtorrent for Python " + pythonVersion
+print "========================================="
+
 from distutils.core import setup, Extension
 
 module1 = Extension('torrent',
-                    include_dirs = ['./include','./include/libtorrent', '/usr/include/python2.4'],
+                    include_dirs = ['./include', './include/libtorrent',
+												'/usr/include/python' + pythonVersion],
                     libraries = ['boost_filesystem', 'boost_date_time',
 											'boost_program_options', 'boost_regex',
 											'boost_serialization', 'boost_thread', 'z', 'pthread'],
