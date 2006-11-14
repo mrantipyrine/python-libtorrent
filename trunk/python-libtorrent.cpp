@@ -1035,15 +1035,22 @@ static PyObject *torrent_applyIPFilter(PyObject *self, PyObject *args)
 	address_v4 from, to;
 	PyObject *curr;
 
+	printf("Can I 10.10.10.10? %d\r\n", theFilter.access(address_v4::from_string("10.10.10.10")));
+
 	for (long i = 0; i < numRanges; i++)
 	{
 		curr = PyList_GetItem(ranges, i);
 		from = address_v4::from_string(PyString_AsString(PyList_GetItem(curr, 0)));
 		to   = address_v4::from_string(PyString_AsString(PyList_GetItem(curr, 1)));
+		printf("Filtering: %s - %s\r\n", from.to_string().c_str(), to.to_string().c_str());
 		theFilter.add_rule(from, to, ip_filter::blocked);
 	};
 
+	printf("Can I 10.10.10.10? %d\r\n", theFilter.access(address_v4::from_string("10.10.10.10")));
+
 	ses->set_ip_filter(theFilter);
+
+	printf("Can I 10.10.10.10? %d\r\n", theFilter.access(address_v4::from_string("10.10.10.10")));
 
 	Py_INCREF(Py_None); return Py_None;
 }
