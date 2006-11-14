@@ -31,7 +31,7 @@
 #include "libtorrent/alert_types.hpp"
 #include "libtorrent/storage.hpp"
 #include "libtorrent/hasher.hpp"
-
+#include "libtorrent/ip_filter.hpp"
 
 #include <boost/filesystem/operations.hpp>
 
@@ -1021,6 +1021,33 @@ static PyObject *torrent_createTorrent(PyObject *self, PyObject *args)
 	}
 }
 
+static PyObject *torrent_applyIPFilter(PyObject *self, PyObject *args)
+{
+	PyObject *ranges;
+	PyArg_ParseTuple(args, "O", &ranges);
+
+	long numRanges = PyList_Size(ranges);
+
+//	printf("Number of ranges: %l\r\n", numRanges);
+//	Py_INCREF(Py_None); return Py_None;
+	
+	ip_filter theFilter;
+	address_v4 from, to;
+	PyObject *curr;
+
+	for (long i = 0; i < numRanges; i++)
+	{
+		curr = PyList_GetItem(ranges, i);
+		from = address_v4::from_string(PyString_AsString(PyList_GetItem(curr, 0)));
+		to   = address_v4::from_string(PyString_AsString(PyList_GetItem(curr, 1)));
+		theFilter.add_rule(from, to, ip_filter::blocked);
+	};
+
+	ses->set_ip_filter(theFilter);
+
+	Py_INCREF(Py_None); return Py_None;
+}
+
 
 //====================
 // Python Module data
@@ -1055,6 +1082,7 @@ static PyMethodDef TorrentMethods[] = {
 	{"stopDHT",							torrent_stopDHT, 					METH_VARARGS,		 "."},
 	{"getDHTinfo",						torrent_getDHTinfo, 				METH_VARARGS,		 "."},
 	{"createTorrent",					torrent_createTorrent, 			METH_VARARGS,		 "."},
+	{"applyIPFilter",					torrent_applyIPFilter, 			METH_VARARGS,		 "."},
 	{NULL}        /* Sentinel */
 };
 
