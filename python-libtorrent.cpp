@@ -488,13 +488,14 @@ static PyObject *torrent_setMaxConnections(PyObject *self, PyObject *args)
 static PyObject *torrent_addTorrent(PyObject *self, PyObject *args)
 {
 	const char *name, *saveDir;
-	PyArg_ParseTuple(args, "ss", &name, &saveDir);
+	pythonLong compact;
+	PyArg_ParseTuple(args, "ssi", &name, &saveDir, &compact);
 
 	path saveDir_2	(saveDir, empty_name_check);
 
 	try
 	{
-		return Py_BuildValue("i", internal_add_torrent(name, 0, true, saveDir_2));
+		return Py_BuildValue("i", internal_add_torrent(name, 0, compact, saveDir_2));
 	}
 	catch (invalid_encoding&)
 	{
