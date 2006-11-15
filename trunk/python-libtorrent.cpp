@@ -104,6 +104,7 @@ filterOuts_t     *filterOuts		= NULL;
 PyObject         *constants		= NULL;
 long					uniqueCounter	= 0;
 torrentNames_t   *torrentNames   = NULL;
+ip_filter		  *theFilter		= NULL;
 
 // Internal functions
 
@@ -1029,29 +1030,35 @@ static PyObject *torrent_applyIPFilter(PyObject *self, PyObject *args)
 
 	long numRanges = PyList_Size(ranges);
 
-//	printf("Number of ranges: %l\r\n", numRanges);
+//	printf("Number of ranges: %ld\r\n", numRanges);
 //	Py_INCREF(Py_None); return Py_None;
-	
-	ip_filter theFilter;
+
+	// Remove existing filter, if there is one
+	if (theFilter != NULL)
+		delete theFilter;
+
+	theFilter = new ip_filter();
+
 	address_v4 from, to;
 	PyObject *curr;
 
-	printf("Can I 10.10.10.10? %d\r\n", theFilter.access(address_v4::from_string("10.10.10.10")));
+//	printf("Can I 10.10.10.10? %d\r\n", theFilter->access(address_v4::from_string("10.10.10.10")));
 
 	for (long i = 0; i < numRanges; i++)
 	{
 		curr = PyList_GetItem(ranges, i);
+//		PyObject_Print(curr, stdout, 0);
 		from = address_v4::from_string(PyString_AsString(PyList_GetItem(curr, 0)));
 		to   = address_v4::from_string(PyString_AsString(PyList_GetItem(curr, 1)));
-		printf("Filtering: %s - %s\r\n", from.to_string().c_str(), to.to_string().c_str());
-		theFilter.add_rule(from, to, ip_filter::blocked);
+//		printf("Filtering: %s - %s\r\n", from.to_string().c_str(), to.to_string().c_str());
+		theFilter->add_rule(from, to, ip_filter::blocked);
 	};
 
-	printf("Can I 10.10.10.10? %d\r\n", theFilter.access(address_v4::from_string("10.10.10.10")));
+//	printf("Can I 10.10.10.10? %d\r\n", theFilter->access(address_v4::from_string("10.10.10.10")));
 
-	ses->set_ip_filter(theFilter);
+	ses->set_ip_filter(*theFilter);
 
-	printf("Can I 10.10.10.10? %d\r\n", theFilter.access(address_v4::from_string("10.10.10.10")));
+//	printf("Can I 10.10.10.10? %d\r\n", theFilter->access(address_v4::from_string("10.10.10.10")));
 
 	Py_INCREF(Py_None); return Py_None;
 }

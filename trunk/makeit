@@ -1,5 +1,1 @@
-echo ""
-echo "Make!"
-echo ""
 python setup.py build
-echo ""

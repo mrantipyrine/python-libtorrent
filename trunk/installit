@@ -1,4 +1,1 @@
-echo ""
-echo "Install!"
-echo ""
 sudo python setup.py install
