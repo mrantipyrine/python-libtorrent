@@ -82,6 +82,7 @@ using boost::filesystem::path;
 #define ERROR_INVALID_ENCODING  -10
 #define ERROR_FILESYSTEM        -20
 #define ERROR_DUPLICATE_TORRENT -30
+#define ERROR_INVALID_TORRENT   -40
 
 
 typedef std::vector<torrent_handle> handles_t;
@@ -357,7 +358,7 @@ static PyObject *torrent_init(PyObject *self, PyObject *args)
 	} else
 		printf("No DHT file found.\r\n");
 */
-	constants = Py_BuildValue("{s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i}",
+	constants = Py_BuildValue("{s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i,s:i}",
 										"EVENT_NULL",					EVENT_NULL,
 										"EVENT_FINISHED",				EVENT_FINISHED,
 										"EVENT_PEER_ERROR",			EVENT_PEER_ERROR,
@@ -377,6 +378,7 @@ static PyObject *torrent_init(PyObject *self, PyObject *args)
 										"STATE_SEEDING",				STATE_SEEDING,
 										"STATE_ALLOCATING",			STATE_ALLOCATING,
 										"ERROR_INVALID_ENCODING",	ERROR_INVALID_ENCODING,
+										"ERROR_INVALID_TORRENT",	ERROR_INVALID_TORRENT,
 										"ERROR_FILESYSTEM",			ERROR_FILESYSTEM,
 										"ERROR_DUPLICATE_TORRENT",	ERROR_DUPLICATE_TORRENT);
 
@@ -501,6 +503,10 @@ static PyObject *torrent_addTorrent(PyObject *self, PyObject *args)
 	catch (invalid_encoding&)
 	{
 		return Py_BuildValue("i", ERROR_INVALID_ENCODING);
+	}
+	catch (invalid_torrent_file&)
+	{
+		return Py_BuildValue("i", ERROR_INVALID_TORRENT);
 	}
 	catch (boost::filesystem::filesystem_error&)
 	{
